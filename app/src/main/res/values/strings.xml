@@ -92,6 +92,9 @@
     <string name="stop_reading">Stop reading</string>
     <string name="nothing_to_read">Nothing to read here</string>
     <string name="tts_unavailable">Text-to-speech unavailable</string>
+    <string name="download_started">Download started</string>
+    <string name="download_saved">Saved %1$s to Downloads</string>
+    <string name="download_failed">Download failed</string>
 
     <string name="refresh">Refresh</string>
     <string name="share_link">Share Freedium link</string>

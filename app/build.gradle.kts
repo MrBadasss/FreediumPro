@@ -20,8 +20,8 @@ android {
         minSdk = 29
         // 35 keeps the classic (non edge-to-edge, non predictive-back) window behaviour.
         targetSdk = 35
-        versionCode = 14
-        versionName = "4.2"
+        versionCode = 15
+        versionName = "4.3"
     }
 
     signingConfigs {

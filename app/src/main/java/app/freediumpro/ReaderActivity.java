@@ -36,6 +36,20 @@ public class ReaderActivity extends Activity {
     static final String ACTION_OFFLINE = "app.freediumpro.OFFLINE";
     static final String EXTRA_OFFLINE = "offline_path";
 
+    // Captures Freedium's "Download article" (a blob download a WebView would otherwise ignore):
+    // intercepts the download anchor, reads the blob, and hands it to the app to save.
+    private static final String DOWNLOAD_JS =
+            "(function(){try{if(window.__fzDl)return;window.__fzDl=1;"
+            + "document.addEventListener('click',function(e){try{"
+            + "var a=e.target.closest?e.target.closest('a[download]'):null;if(!a)return;"
+            + "var h=a.href||'';if(h.indexOf('blob:')!==0)return;e.preventDefault();"
+            + "var n=a.getAttribute('download')||document.title||'article';"
+            + "fetch(h).then(function(r){return r.blob();}).then(function(b){"
+            + "var fr=new FileReader();fr.onloadend=function(){var d=''+fr.result;var i=d.indexOf(',');"
+            + "var m=d.substring(5,d.indexOf(';'))||'application/octet-stream';"
+            + "AndroidDownload.save(d.substring(i+1),m,n);};fr.readAsDataURL(b);}).catch(function(){});"
+            + "}catch(err){}},true);}catch(e){}})();";
+
     private static final String CLEAN_JS =
             "(function(){try{if(window.__fzClean)return;window.__fzClean=1;"
             + "var c='[data-slot=\"drawer-overlay\"],[data-slot=\"drawer-content\"],"
@@ -215,6 +229,7 @@ public class ReaderActivity extends Activity {
                 boolean onMirror = FreediumLinks.isOnMirror(mirror(), url);
                 if (onMirror || offlinePath != null) {
                     view.evaluateJavascript(CLEAN_JS, null);
+                    view.evaluateJavascript(DOWNLOAD_JS, null);
                     applyTheme();
                     dismissLoading();
                     if (!historyRecorded && originalUrl != null) {
@@ -226,6 +241,8 @@ public class ReaderActivity extends Activity {
         });
 
         webView.setOnScrollChangeListener((v, x, y, ox, oy) -> updateReadingProgress());
+        webView.addJavascriptInterface(new DownloadBridge(), "AndroidDownload");
+        webView.setDownloadListener((url, ua, cd, mime, len) -> onDownload(url, cd, mime));
     }
 
     private void updateReadingProgress() {
@@ -379,6 +396,102 @@ public class ReaderActivity extends Activity {
             return new org.json.JSONArray("[" + jsonString + "]").getString(0);
         } catch (Exception e) {
             return jsonString;
+        }
+    }
+
+    // --- downloads ---
+
+    /** Handles anything the page tries to download that isn't caught by the blob click capturer. */
+    private void onDownload(String url, String contentDisposition, String mime) {
+        try {
+            if (url.startsWith("blob:")) {
+                // Fallback: fetch the blob in page context and hand it back to the bridge.
+                webView.evaluateJavascript(
+                        "(function(u){try{fetch(u).then(function(r){return r.blob();}).then(function(b){"
+                                + "var fr=new FileReader();fr.onloadend=function(){var d=''+fr.result;var i=d.indexOf(',');"
+                                + "AndroidDownload.save(d.substring(i+1),d.substring(5,d.indexOf(';'))||'application/octet-stream',"
+                                + "document.title||'article');};fr.readAsDataURL(b);}).catch(function(){});}catch(e){}})("
+                                + jsString(url) + ");", null);
+            } else if (url.startsWith("data:")) {
+                int comma = url.indexOf(',');
+                String meta = url.substring(5, comma);
+                byte[] bytes = meta.contains(";base64")
+                        ? android.util.Base64.decode(url.substring(comma + 1), android.util.Base64.DEFAULT)
+                        : java.net.URLDecoder.decode(url.substring(comma + 1), "UTF-8").getBytes("UTF-8");
+                saveBytes(bytes, meta.split(";")[0], guessName(titleOrUrl(), meta.split(";")[0]));
+            } else {
+                android.app.DownloadManager dm = getSystemService(android.app.DownloadManager.class);
+                android.app.DownloadManager.Request req = new android.app.DownloadManager.Request(Uri.parse(url));
+                String name = android.webkit.URLUtil.guessFileName(url, contentDisposition, mime);
+                req.setMimeType(mime);
+                req.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                req.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, name);
+                dm.enqueue(req);
+                Toast.makeText(this, R.string.download_started, Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, R.string.download_failed, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** Writes bytes into the public Downloads collection (no storage permission needed). */
+    private void saveBytes(byte[] bytes, String mime, String name) {
+        try {
+            android.content.ContentValues cv = new android.content.ContentValues();
+            cv.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name);
+            cv.put(android.provider.MediaStore.Downloads.MIME_TYPE,
+                    mime == null || mime.isEmpty() ? "application/octet-stream" : mime);
+            cv.put(android.provider.MediaStore.Downloads.IS_PENDING, 1);
+            Uri uri = getContentResolver().insert(
+                    android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
+            if (uri == null) {
+                Toast.makeText(this, R.string.download_failed, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            java.io.OutputStream os = getContentResolver().openOutputStream(uri);
+            os.write(bytes);
+            os.close();
+            cv.clear();
+            cv.put(android.provider.MediaStore.Downloads.IS_PENDING, 0);
+            getContentResolver().update(uri, cv, null, null);
+            Toast.makeText(this, getString(R.string.download_saved, name), Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Toast.makeText(this, R.string.download_failed, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private static String guessName(String base, String mime) {
+        String n = base == null ? "article" : base.replaceAll("[^A-Za-z0-9 ._-]", "").trim();
+        if (n.isEmpty()) n = "article";
+        if (n.length() > 60) n = n.substring(0, 60);
+        String ext = extFor(mime);
+        if (!n.toLowerCase(Locale.ROOT).endsWith("." + ext)) n = n + "." + ext;
+        return n;
+    }
+
+    private static String extFor(String mime) {
+        if (mime == null) return "bin";
+        mime = mime.toLowerCase(Locale.ROOT);
+        if (mime.contains("markdown")) return "md";
+        if (mime.contains("pdf")) return "pdf";
+        if (mime.contains("html")) return "html";
+        if (mime.contains("json")) return "json";
+        if (mime.contains("epub")) return "epub";
+        if (mime.contains("zip")) return "zip";
+        if (mime.contains("text/plain")) return "txt";
+        return "bin";
+    }
+
+    /** Exposed to the Freedium page only to save a user-triggered download into Downloads. */
+    private final class DownloadBridge {
+        @android.webkit.JavascriptInterface
+        public void save(String base64, String mime, String baseName) {
+            try {
+                byte[] bytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT);
+                runOnUiThread(() -> saveBytes(bytes, mime, guessName(baseName, mime)));
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(ReaderActivity.this, R.string.download_failed, Toast.LENGTH_SHORT).show());
+            }
         }
     }
 
