@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/action_refresh" android:title="@string/refresh" />
+    <item android:id="@+id/action_share" android:title="@string/share_link" />
+    <item android:id="@+id/action_copy" android:title="@string/copy_link" />
+    <item android:id="@+id/action_browser" android:title="@string/open_browser" />
+    <item android:id="@+id/action_original" android:title="@string/open_original" />
+</menu>
