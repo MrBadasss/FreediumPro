@@ -8,8 +8,23 @@ final class Prefs {
     private static final String FILE = "settings";
     private static final String KEY_MIRROR = "mirror";
     private static final String KEY_AUTO_ROUTE = "auto_route";
+    private static final String KEY_FAB_X = "fab_x";
+    private static final String KEY_FAB_Y = "fab_y";
 
     private Prefs() {}
+
+    /** Remembered drag offset of the floating button (pixels from its default bottom-end anchor). */
+    static float fabX(Context context) {
+        return prefs(context).getFloat(KEY_FAB_X, 0f);
+    }
+
+    static float fabY(Context context) {
+        return prefs(context).getFloat(KEY_FAB_Y, 0f);
+    }
+
+    static void setFabPos(Context context, float x, float y) {
+        prefs(context).edit().putFloat(KEY_FAB_X, x).putFloat(KEY_FAB_Y, y).apply();
+    }
 
     static boolean autoRoute(Context context) {
         return prefs(context).getBoolean(KEY_AUTO_ROUTE, true);

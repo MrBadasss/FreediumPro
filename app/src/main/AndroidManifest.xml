@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
         android:allowBackup="true"
@@ -16,6 +15,7 @@
         <activity
             android:name=".HomeActivity"
             android:exported="true"
+            android:theme="@style/AppTheme.NoActionBar"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -55,24 +55,10 @@
             </intent-filter>
         </activity>
 
-        <!-- Mirror settings, paywall auto-route toggle, default-handler shortcut, sign-out. -->
+        <!-- Auto-route toggle, mirror settings, default-handler shortcut, Medium sign-out. -->
         <activity
             android:name=".SettingsActivity"
             android:exported="false"
             android:label="@string/settings" />
-
-        <!-- Watches only the Medium app to float a "Read free" bubble on member-only articles. -->
-        <service
-            android:name=".MediumWatchService"
-            android:exported="false"
-            android:label="@string/a11y_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/medium_accessibility_config" />
-        </service>
     </application>
 </manifest>

@@ -28,9 +28,6 @@ public class ReaderActivity extends Activity {
 
     private static final String STATE_ORIGINAL = "original";
 
-    /** Launched by the Medium-app bubble: the article URL is on the clipboard. */
-    static final String ACTION_FROM_CLIPBOARD = "app.freediumshare.FROM_CLIPBOARD";
-
     // Hides Freedium's donation drawer / overlays and keeps the page scrollable, re-applying as
     // the Svelte app re-renders. Targets shadcn/Vaul drawer slots, not the article.
     private static final String CLEAN_JS =
@@ -54,7 +51,6 @@ public class ReaderActivity extends Activity {
     private String mirror;
     private String originalUrl;
     private boolean failed;
-    private boolean pendingClipboard;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,12 +70,6 @@ public class ReaderActivity extends Activity {
             return;
         }
 
-        if (ACTION_FROM_CLIPBOARD.equals(getIntent().getAction())) {
-            // The URL was copied by the bubble; read it once the window has focus (clipboard rule).
-            pendingClipboard = true;
-            setTitle(R.string.loading);
-            return;
-        }
         originalUrl = FreediumLinks.extractUrl(sharedText(getIntent()));
         if (originalUrl == null) {
             Toast.makeText(this, R.string.no_link, Toast.LENGTH_LONG).show();
@@ -87,28 +77,6 @@ public class ReaderActivity extends Activity {
             return;
         }
         load(originalUrl);
-    }
-
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (!pendingClipboard || !hasFocus) return;
-        pendingClipboard = false;
-        String url = FreediumLinks.extractUrl(clipboardText());
-        if (url == null || !FreediumLinks.isMediumHost(FreediumLinks.hostOf(url))) {
-            Toast.makeText(this, R.string.no_link, Toast.LENGTH_LONG).show();
-            finish();
-            return;
-        }
-        originalUrl = url;
-        load(url);
-    }
-
-    private String clipboardText() {
-        ClipboardManager cm = getSystemService(ClipboardManager.class);
-        ClipData clip = cm == null ? null : cm.getPrimaryClip();
-        CharSequence t = clip != null && clip.getItemCount() > 0 ? clip.getItemAt(0).coerceToText(this) : null;
-        return t == null ? null : t.toString();
     }
 
     /** Resolves short links first, then loads the Freedium page. */

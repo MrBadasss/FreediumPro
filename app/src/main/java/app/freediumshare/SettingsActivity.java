@@ -2,12 +2,10 @@ package app.freediumshare;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.ComponentName;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.text.TextUtils;
 import android.webkit.CookieManager;
 import android.webkit.WebStorage;
 import android.widget.CompoundButton;
@@ -16,7 +14,7 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
-/** Mirror configuration, paywall auto-routing toggle, default-handler shortcut, and Medium sign-out. */
+/** Auto-route toggle, mirror editor + test, default-handler shortcut, and Medium sign-out. */
 public class SettingsActivity extends Activity {
 
     private EditText linkInput;
@@ -46,58 +44,7 @@ public class SettingsActivity extends Activity {
         autoRoute.setChecked(Prefs.autoRoute(this));
         autoRoute.setOnCheckedChangeListener((CompoundButton b, boolean on) -> Prefs.setAutoRoute(this, on));
 
-        findViewById(R.id.overlay_button).setOnClickListener(v -> requestOverlay());
-        findViewById(R.id.a11y_button).setOnClickListener(v -> openAccessibilitySettings());
-
         showMirror();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        showBubbleStatus();
-    }
-
-    private void showBubbleStatus() {
-        boolean overlay = Settings.canDrawOverlays(this);
-        boolean watcher = isWatcherEnabled();
-        String state = overlay && watcher ? getString(R.string.bubble_on)
-                : getString(R.string.bubble_steps,
-                        overlay ? "✓" : "•", watcher ? "✓" : "•");
-        ((TextView) findViewById(R.id.bubble_status)).setText(state);
-    }
-
-    private boolean isWatcherEnabled() {
-        String enabled = Settings.Secure.getString(getContentResolver(),
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        if (TextUtils.isEmpty(enabled)) return false;
-        String me = new ComponentName(this, MediumWatchService.class).flattenToString();
-        for (String part : enabled.split(":")) {
-            if (part.equalsIgnoreCase(me)) return true;
-        }
-        return false;
-    }
-
-    private void requestOverlay() {
-        if (Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, R.string.overlay_granted, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        try {
-            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:" + getPackageName())));
-        } catch (Exception e) {
-            Toast.makeText(this, R.string.open_settings_manually, Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private void openAccessibilitySettings() {
-        try {
-            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-            Toast.makeText(this, R.string.find_watcher, Toast.LENGTH_LONG).show();
-        } catch (Exception e) {
-            Toast.makeText(this, R.string.open_settings_manually, Toast.LENGTH_LONG).show();
-        }
     }
 
     private void showMirror() {
