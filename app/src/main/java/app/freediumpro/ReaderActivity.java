@@ -41,11 +41,16 @@ public class ReaderActivity extends Activity {
             + "var c='[data-slot=\"drawer-overlay\"],[data-slot=\"drawer-content\"],"
             + "[data-vaul-overlay],[vaul-overlay],[data-vaul-drawer],"
             + "section[aria-label^=\"Notifications\"]"
-            + "{display:none!important;visibility:hidden!important;}';"
+            + "{display:none!important;visibility:hidden!important;}"
+            + "img{max-width:100%!important;}';"
             + "var s=document.createElement('style');s.textContent=c;"
             + "(document.head||document.documentElement).appendChild(s);"
             + "function u(){try{var b=document.body;if(!b)return;b.style.overflow='';"
-            + "b.style.position='';b.style.top='';b.removeAttribute('data-vaul-drawer-wrapper');"
+            + "b.style.position='';b.style.top='';b.style.transform='';b.style.transformOrigin='';"
+            + "b.style.borderRadius='';b.removeAttribute('data-vaul-drawer-wrapper');"
+            + "var w=document.querySelector('[data-vaul-drawer-wrapper]');"
+            + "if(w){w.style.transform='';w.style.borderRadius='';"
+            + "w.removeAttribute('data-vaul-drawer-wrapper');}"
             + "document.documentElement.style.overflow='';}catch(e){}}u();"
             + "new MutationObserver(u).observe(document.documentElement,{childList:true,"
             + "subtree:true,attributes:true,attributeFilter:['style','data-vaul-drawer-wrapper']});"
@@ -155,6 +160,10 @@ public class ReaderActivity extends Activity {
         s.setDisplayZoomControls(false);
         s.setAllowFileAccess(true);
         s.setTextZoom(Prefs.fontScale(this));
+        // Honour the page's width=device-width viewport so full-bleed (vw-based) hero images
+        // lay out at the real screen width instead of shifting.
+        s.setUseWideViewPort(true);
+        s.setLoadWithOverviewMode(true);
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
