@@ -56,7 +56,10 @@ public class ReaderActivity extends Activity {
             + "[data-vaul-overlay],[vaul-overlay],[data-vaul-drawer],"
             + "section[aria-label^=\"Notifications\"]"
             + "{display:none!important;visibility:hidden!important;}"
-            + "img{max-width:100%!important;}';"
+            + "img{max-width:100%!important;}"
+            // Freedium's cover image is object-cover + min-h-96, which crops landscape covers.
+            // Show the whole image, fitted to the window, instead.
+            + "img.min-h-96{object-fit:contain!important;min-height:0!important;height:auto!important;}';"
             + "var s=document.createElement('style');s.textContent=c;"
             + "(document.head||document.documentElement).appendChild(s);"
             + "function u(){try{var b=document.body;if(!b)return;b.style.overflow='';"
