@@ -45,6 +45,19 @@
     <string name="mirror_unreachable">Mirror did not respond</string>
     <string name="open_settings_manually">Open Settings → Apps → Freedium → Open by default</string>
 
+    <string name="a11y_label">Medium paywall watcher</string>
+    <string name="a11y_desc">Watches only the Medium app and floats a "Read free" bubble on member-only articles. It reads on-screen text on your device to detect the paywall; nothing is sent anywhere.</string>
+    <string name="bubble_title">Floating button over the Medium app</string>
+    <string name="bubble_help">Shows a draggable "Read free" bubble when the Medium app opens a member-only story. Tapping it uses Medium\'s own Share to hand the link to Freedium. It works only with the Medium app installed, needs the two permissions below, and reads screen text on-device only.</string>
+    <string name="bubble_on">● Active — open a member-only story in the Medium app</string>
+    <string name="bubble_steps">Setup: %1$s draw over apps · %2$s enable watcher</string>
+    <string name="grant_overlay">1. Allow drawing over other apps</string>
+    <string name="enable_watcher">2. Enable the Medium watcher (Accessibility)</string>
+    <string name="overlay_granted">Already allowed</string>
+    <string name="overlay_needed">Allow "draw over other apps" in settings to show the bubble</string>
+    <string name="find_watcher">Find "Medium paywall watcher" under Installed apps and turn it on</string>
+    <string name="tap_share_manually">Open Medium\'s Share, then pick "Read on Freedium"</string>
+
     <string name="refresh">Refresh</string>
     <string name="share_link">Share Freedium link</string>
     <string name="copy_link">Copy link</string>

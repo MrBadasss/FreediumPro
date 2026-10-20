@@ -36,11 +36,24 @@ Medium does not cleanly mark "this reader can't see this story". The app looks f
 *member-only* badge together with an upgrade/sign-up gate and treats that as locked. It can miss
 or misfire as Medium changes its markup, so the **Read free** button is always the reliable path.
 
-## Not included (by design)
+## Floating button over the Medium app (optional, opt-in)
 
-A floating button *over the official Medium app* is intentionally not built — it would require an
-accessibility service reading another app's screen to scrape the article URL, which is invasive
-and fragile. The in-app floating button covers the same need cleanly.
+An accessibility service (`MediumWatchService`) can float a "Read free" bubble over the **official
+Medium app**. It is **scoped to `com.medium.reader` only**, reads on-screen text **on-device**
+(never sent anywhere), and is off until you enable it in Settings:
+
+1. **Allow drawing over other apps** (`SYSTEM_ALERT_WINDOW`).
+2. **Enable the Medium watcher** (Accessibility settings → Installed apps).
+
+When the Medium app shows a member-only story (detected by the on-screen "Member-only" text,
+the accessibility analogue of the userscript's DOM check), a draggable bubble appears. Tapping it
+triggers Medium's own **Share** action; the share target "Read on Freedium" then receives the URL
+and opens it via Freedium (the chooser entry is auto-selected when possible).
+
+**Why the Share hand-off:** the native Medium app is not a web page — there is no DOM and no article
+URL exposed to other apps. The only reliable way to get the exact URL is Medium's Share, so the flow
+is bubble → Medium Share → Freedium, not a silent scrape. The browser/WebView paths above remain the
+most seamless; this is for reading inside the native Medium app.
 
 ## Build
 
@@ -62,5 +75,6 @@ Keep them: updates must be signed with the same key to install over an existing 
 | `LinkResolver.java` | Follows short-link redirects off the main thread |
 | `HomeActivity.java` | medium.com browser: feed, paywall auto-route, floating "Read free" button |
 | `ReaderActivity.java` | Share / view / process-text target with the Freedium WebView reader and retry page |
-| `SettingsActivity.java` | Auto-route toggle, mirror editor + test, default-handler shortcut, Medium sign-out |
+| `SettingsActivity.java` | Auto-route toggle, floating-bubble setup, mirror editor + test, default-handler shortcut, Medium sign-out |
+| `MediumWatchService.java` | Accessibility service (Medium-only) that floats the "Read free" bubble on member-only articles and hands the URL to Freedium via Medium Share |
 | `Prefs.java` | Stores the mirror and the auto-route preference |
