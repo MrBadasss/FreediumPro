@@ -4,5 +4,4 @@
     android:accessibilityFeedbackType="feedbackGeneric"
     android:notificationTimeout="300"
     android:canRetrieveWindowContent="true"
-    android:packageNames="com.medium.reader,android,com.android.intentresolver"
     android:description="@string/a11y_desc" />

@@ -44,6 +44,14 @@ public class HomeActivity extends Activity {
             + "Get unlimited access)/i.test(b)?'locked':'open';"
             + "}catch(e){return 'open';}})()";
 
+    // Hides Medium's "Open in app" banner so it can't drive the user to the Play Store.
+    private static final String HIDE_OPENAPP_JS =
+            "(function(){try{var e=document.querySelectorAll('a,button');"
+            + "for(var i=0;i<e.length;i++){var t=(e[i].textContent||'').trim().toLowerCase();"
+            + "if(t==='open in app'||t==='open in the app'){var n=e[i];"
+            + "if(n.parentElement)n=n.parentElement;n.style.setProperty('display','none','important');}}"
+            + "}catch(e){}})();";
+
     private WebView webView;
     private ProgressBar progress;
     private Button readFree;
@@ -110,12 +118,13 @@ public class HomeActivity extends Activity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                String url = request.getUrl().toString();
-                String host = request.getUrl().getHost();
+                android.net.Uri uri = request.getUrl();
+                String host = uri.getHost();
+                // Never leave for the Play Store or an app deep link (the "Open in app" trap).
+                if (isStoreOrAppLink(uri.getScheme(), host)) return true;
                 // Medium and its sign-in providers stay in this view; anything else goes to a browser.
                 if (FreediumLinks.isMediumHost(host) || isAuthHost(host)) return false;
-                startActivity(new Intent(Intent.ACTION_VIEW, request.getUrl())
-                        .addCategory(Intent.CATEGORY_BROWSABLE));
+                startActivity(new Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE));
                 return true;
             }
 
@@ -129,6 +138,17 @@ public class HomeActivity extends Activity {
                 checkUrl();
             }
         });
+    }
+
+    /** Play Store links and app deep links that would bounce the user out to the Play Store. */
+    private static boolean isStoreOrAppLink(String scheme, String host) {
+        if (scheme != null) {
+            String s = scheme.toLowerCase();
+            if (s.equals("market") || s.equals("intent") || s.equals("android-app") || s.equals("medium")) {
+                return true;
+            }
+        }
+        return host != null && (host.contains("play.google.com") || host.equals("market.android.com"));
     }
 
     private static boolean isAuthHost(String host) {
@@ -145,6 +165,7 @@ public class HomeActivity extends Activity {
         readFree.setVisibility(FreediumLinks.looksLikeArticle(url) ? View.VISIBLE : View.GONE);
         if (url == null || url.equals(lastUrl)) return;
         lastUrl = url;
+        webView.evaluateJavascript(HIDE_OPENAPP_JS, null);
         if (FreediumLinks.looksLikeArticle(url) && Prefs.autoRoute(this)) {
             maybeAutoRoute(url);                       // content may still be loading on an SPA nav,
             ui.postDelayed(() -> maybeAutoRoute(url), 1500); // so check again shortly after.

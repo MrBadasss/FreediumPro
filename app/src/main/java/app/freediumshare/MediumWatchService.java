@@ -56,14 +56,18 @@ public class MediumWatchService extends AccessibilityService {
             }
         }
 
+        // We now receive events from every app (so we can tell when Medium is left), but we only
+        // read content from the Medium app; for anything else we just hide the bubble.
         if (!MEDIUM.contentEquals(pkg)) {
-            if (!awaitingShareSheet) hideBubble();
+            hideBubble();
             return;
         }
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) return;
-        boolean memberOnly = findMatch(root, "member-only", new int[]{NODE_BUDGET}) != null;
-        if (memberOnly) showBubble(); else hideBubble();
+        // "Member-only story" is the article header badge. Plain "Member-only" also appears on feed
+        // cards, so the more specific phrase keeps the bubble to the open article, not the feed.
+        boolean onArticle = findMatch(root, "member-only story", new int[]{NODE_BUDGET}) != null;
+        if (onArticle) showBubble(); else hideBubble();
     }
 
     @Override

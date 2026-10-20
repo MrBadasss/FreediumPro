@@ -221,6 +221,8 @@ public class ReaderActivity extends Activity {
         Uri uri = Uri.parse(url);
         String scheme = uri.getScheme();
         if (!"http".equals(scheme) && !"https".equals(scheme) && !"mailto".equals(scheme)) return;
+        String host = uri.getHost();
+        if (host != null && (host.contains("play.google.com") || host.equals("market.android.com"))) return;
         Intent intent = new Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE);
         try {
             startActivity(chooser ? Intent.createChooser(intent, null) : intent);
