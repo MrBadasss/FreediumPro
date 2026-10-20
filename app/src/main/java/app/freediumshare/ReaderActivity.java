@@ -33,7 +33,8 @@ public class ReaderActivity extends Activity {
     private static final String CLEAN_JS =
             "(function(){try{if(window.__fzClean)return;window.__fzClean=1;"
             + "var c='[data-slot=\"drawer-overlay\"],[data-slot=\"drawer-content\"],"
-            + "[data-vaul-overlay],[vaul-overlay],[data-vaul-drawer]"
+            + "[data-vaul-overlay],[vaul-overlay],[data-vaul-drawer],"
+            + "section[aria-label^=\"Notifications\"]"  // Freedium "updated"/"new sources" toasts
             + "{display:none!important;visibility:hidden!important;}';"
             + "var s=document.createElement('style');s.textContent=c;"
             + "(document.head||document.documentElement).appendChild(s);"

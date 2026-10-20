@@ -30,6 +30,10 @@ public class HomeActivity extends Activity {
 
     private static final String HOME = "https://medium.com/";
 
+    // Branding shown briefly on launch. Hardcoded here (not in editable resources) on purpose.
+    private static final String BRAND_NAME = "Mr_Badasss";
+    private static final String BRAND_EYEBROW = "CONTRIBUTED BY";
+
     // Article + paywall detection, ported from the user's userscript: the al:android:url meta marks
     // a Medium article; "Member-only" + an upgrade gate marks one this account can't read.
     private static final String PAYWALL_JS =
@@ -86,6 +90,72 @@ public class HomeActivity extends Activity {
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
             webView.loadUrl(startUrl(getIntent()));
         }
+        if (savedInstanceState == null) showBranding();
+    }
+
+    /** Brief, non-disturbing branding on launch; built in code and faded out automatically. */
+    private void showBranding() {
+        final int white = 0xFFFFFFFF, muted = 0xFF9AA0A6;
+
+        android.widget.FrameLayout overlay = new android.widget.FrameLayout(this);
+        overlay.setBackground(new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0xFF0B2E14, 0xFF0A0A0A}));
+        overlay.setClickable(true);
+
+        android.widget.ImageView logo = new android.widget.ImageView(this);
+        logo.setBackgroundResource(R.drawable.circle_bg);
+        logo.setImageResource(R.drawable.ic_lock_open);
+        logo.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
+        logo.setPadding(dpPx(16), dpPx(16), dpPx(16), dpPx(16));
+
+        android.widget.TextView eyebrow = new android.widget.TextView(this);
+        eyebrow.setText(BRAND_EYEBROW);
+        eyebrow.setTextColor(muted);
+        eyebrow.setTextSize(11f);
+        eyebrow.setLetterSpacing(0.28f);
+        eyebrow.setGravity(android.view.Gravity.CENTER);
+
+        android.widget.TextView name = new android.widget.TextView(this);
+        name.setText(BRAND_NAME);
+        name.setTextColor(white);
+        name.setTextSize(26f);
+        name.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        name.setLetterSpacing(0.04f);
+        name.setGravity(android.view.Gravity.CENTER);
+
+        android.widget.LinearLayout col = new android.widget.LinearLayout(this);
+        col.setOrientation(android.widget.LinearLayout.VERTICAL);
+        col.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        col.addView(logo, new android.widget.LinearLayout.LayoutParams(dpPx(68), dpPx(68)));
+        col.addView(eyebrow, marginTop(dpPx(22)));
+        col.addView(name, marginTop(dpPx(4)));
+
+        overlay.addView(col, new android.widget.FrameLayout.LayoutParams(-2, -2, android.view.Gravity.CENTER));
+        android.widget.FrameLayout root = findViewById(android.R.id.content);
+        root.addView(overlay, new android.widget.FrameLayout.LayoutParams(-1, -1));
+
+        col.setAlpha(0f);
+        col.setTranslationY(dpPx(16));
+        col.setScaleX(0.96f);
+        col.setScaleY(0.96f);
+        col.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(450).start();
+        overlay.animate().alpha(0f).setStartDelay(1300).setDuration(500).withEndAction(() -> {
+            if (overlay.getParent() instanceof android.view.ViewGroup) {
+                ((android.view.ViewGroup) overlay.getParent()).removeView(overlay);
+            }
+        });
+    }
+
+    private android.widget.LinearLayout.LayoutParams marginTop(int top) {
+        android.widget.LinearLayout.LayoutParams lp =
+                new android.widget.LinearLayout.LayoutParams(-2, -2);
+        lp.topMargin = top;
+        return lp;
+    }
+
+    private int dpPx(int v) {
+        return Math.round(v * getResources().getDisplayMetrics().density);
     }
 
     /** Opens a Medium URL passed in (data or shared text), otherwise the Medium home feed. */
