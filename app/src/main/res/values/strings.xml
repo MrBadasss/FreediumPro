@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Freedium</string>
+    <string name="app_name">Freedium Pro</string>
     <string name="share_label">Read on Freedium</string>
     <string name="settings">Settings</string>
     <string name="loading">Loading…</string>
@@ -20,6 +20,11 @@
     <string name="logo_title">App logo</string>
     <string name="logo_help">Pick the logo used on the loading screens.</string>
     <string name="logo_selected">Logo updated</string>
+    <string name="set_app_icon">Use this logo as the home-screen icon</string>
+    <string name="app_icon_done">Home-screen icon updated — it may take a moment to refresh</string>
+    <string name="sc_paste">Paste &amp; read</string>
+    <string name="sc_saved">Saved articles</string>
+    <string name="clip_none">No link on the clipboard</string>
 
     <string name="set_default">Open Medium links in this app</string>
     <string name="set_default_help">Opens Android settings → turn on "Open supported links" and add medium.com, so tapping a Medium link opens here.</string>
@@ -46,6 +51,47 @@
     <string name="mirror_ok">Mirror is reachable</string>
     <string name="mirror_unreachable">Mirror did not respond</string>
     <string name="open_settings_manually">Open Settings → Apps → Freedium → Open by default</string>
+    <string name="find_fastest">Find a working mirror</string>
+    <string name="no_mirror_found">No mirror responded</string>
+    <string name="mirror_picked">Using %1$s</string>
+    <string name="maintenance">Maintenance</string>
+    <string name="clear_cache">Clear cache</string>
+    <string name="cache_cleared">Cache cleared</string>
+    <string name="backup">Back up settings</string>
+    <string name="restore">Restore settings</string>
+    <string name="backup_done">Settings backed up</string>
+    <string name="restore_done">Settings restored</string>
+    <string name="restore_failed">Could not restore</string>
+
+    <string name="clip_prompt">Open the copied link via Freedium?</string>
+    <string name="clip_open">OPEN</string>
+    <string name="library">Library</string>
+    <string name="tab_saved">Saved</string>
+    <string name="tab_history">History</string>
+    <string name="empty_saved">No saved articles yet. Open an article and tap Save.</string>
+    <string name="empty_history">Nothing read yet.</string>
+    <string name="clear_all">Clear all</string>
+    <string name="clear_all_confirm">Remove every item from this list?</string>
+    <string name="cleared">Cleared</string>
+
+    <string name="font_bigger">Text bigger</string>
+    <string name="font_smaller">Text smaller</string>
+    <string name="font_scale">Text size %1$d%%</string>
+    <string name="reader_theme">Reading theme</string>
+    <string name="theme_default">Default theme</string>
+    <string name="theme_sepia">Sepia</string>
+    <string name="theme_dark">Dark</string>
+    <string name="save_action">Save to list</string>
+    <string name="saved_remove_action">Remove from list</string>
+    <string name="save_offline_action">Save for offline</string>
+    <string name="saved_added">Saved</string>
+    <string name="saved_removed">Removed</string>
+    <string name="saved_offline">Saved for offline</string>
+    <string name="offline_failed">Could not save offline</string>
+    <string name="read_aloud">Read aloud</string>
+    <string name="stop_reading">Stop reading</string>
+    <string name="nothing_to_read">Nothing to read here</string>
+    <string name="tts_unavailable">Text-to-speech unavailable</string>
 
     <string name="refresh">Refresh</string>
     <string name="share_link">Share Freedium link</string>

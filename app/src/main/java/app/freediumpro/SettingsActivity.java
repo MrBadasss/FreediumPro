@@ -1,4 +1,4 @@
-package app.freediumshare;
+package app.freediumpro;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -39,12 +39,20 @@ public class SettingsActivity extends Activity {
             showMirror();
         });
         findViewById(R.id.signout_button).setOnClickListener(v -> confirmSignOut());
+        findViewById(R.id.fastest_button).setOnClickListener(v -> findFastestMirror());
+        findViewById(R.id.clearcache_button).setOnClickListener(v -> clearCache());
+        findViewById(R.id.backup_button).setOnClickListener(v -> backupSettings());
+        findViewById(R.id.restore_button).setOnClickListener(v -> restoreSettings());
 
         Switch autoRoute = findViewById(R.id.auto_route);
         autoRoute.setChecked(Prefs.autoRoute(this));
         autoRoute.setOnCheckedChangeListener((CompoundButton b, boolean on) -> Prefs.setAutoRoute(this, on));
 
         buildLogoPicker();
+        findViewById(R.id.app_icon_button).setOnClickListener(v -> {
+            LauncherIcons.apply(this, Prefs.logo(this));
+            Toast.makeText(this, R.string.app_icon_done, Toast.LENGTH_LONG).show();
+        });
         showMirror();
     }
 
@@ -129,6 +137,103 @@ public class SettingsActivity extends Activity {
                     Toast.makeText(this, R.string.signed_out, Toast.LENGTH_SHORT).show();
                 })
                 .show();
+    }
+
+    private static final int REQ_BACKUP = 11, REQ_RESTORE = 12;
+
+    /** Pings the known mirrors and selects the first that responds. */
+    private void findFastestMirror() {
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        candidates.add(Prefs.mirror(this));
+        for (String m : FreediumLinks.KNOWN_MIRRORS) if (!candidates.contains(m)) candidates.add(m);
+        Toast.makeText(this, R.string.mirror_testing, Toast.LENGTH_SHORT).show();
+        tryMirror(candidates, 0);
+    }
+
+    private void tryMirror(java.util.List<String> list, int i) {
+        if (i >= list.size()) {
+            Toast.makeText(this, R.string.no_mirror_found, Toast.LENGTH_LONG).show();
+            return;
+        }
+        String m = list.get(i);
+        LinkResolver.resolve(m, finalUrl -> {
+            if (FreediumLinks.hostOf(finalUrl) != null && finalUrl.startsWith(m.substring(0, Math.min(8, m.length())))) {
+                Prefs.setMirror(this, m);
+                showMirror();
+                Toast.makeText(this, getString(R.string.mirror_picked, m), Toast.LENGTH_LONG).show();
+            } else {
+                tryMirror(list, i + 1);
+            }
+        });
+    }
+
+    private void clearCache() {
+        try {
+            android.webkit.WebView w = new android.webkit.WebView(this);
+            w.clearCache(true);
+            w.destroy();
+            android.webkit.WebStorage.getInstance().deleteAllData();
+            deleteDir(getCacheDir());
+        } catch (Exception ignored) {
+        }
+        Toast.makeText(this, R.string.cache_cleared, Toast.LENGTH_SHORT).show();
+    }
+
+    private static void deleteDir(java.io.File dir) {
+        if (dir == null) return;
+        java.io.File[] kids = dir.listFiles();
+        if (kids != null) for (java.io.File f : kids) {
+            if (f.isDirectory()) deleteDir(f);
+            else //noinspection ResultOfMethodCallIgnored
+                f.delete();
+        }
+    }
+
+    private void backupSettings() {
+        Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("application/json").putExtra(Intent.EXTRA_TITLE, "freedium-settings.json");
+        try {
+            startActivityForResult(i, REQ_BACKUP);
+        } catch (Exception e) {
+            Toast.makeText(this, R.string.no_app, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void restoreSettings() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("*/*");
+        try {
+            startActivityForResult(i, REQ_RESTORE);
+        } catch (Exception e) {
+            Toast.makeText(this, R.string.no_app, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (res != RESULT_OK || data == null || data.getData() == null) return;
+        try {
+            if (req == REQ_BACKUP) {
+                java.io.OutputStream os = getContentResolver().openOutputStream(data.getData());
+                os.write(Prefs.exportJson(this).getBytes("UTF-8"));
+                os.close();
+                Toast.makeText(this, R.string.backup_done, Toast.LENGTH_SHORT).show();
+            } else if (req == REQ_RESTORE) {
+                java.io.InputStream is = getContentResolver().openInputStream(data.getData());
+                java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = is.read(buf)) > 0) b.write(buf, 0, n);
+                is.close();
+                boolean ok = Prefs.importJson(this, b.toString("UTF-8"));
+                showMirror();
+                buildLogoPicker();
+                Toast.makeText(this, ok ? R.string.restore_done : R.string.restore_failed, Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, R.string.restore_failed, Toast.LENGTH_SHORT).show();
+        }
     }
 
     /** Opens the system screen where the user can make this app open Medium links. */

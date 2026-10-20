@@ -11,17 +11,17 @@ val keystoreProps = Properties().apply {
 }
 
 android {
-    namespace = "app.freediumshare"
+    namespace = "app.freediumpro"
     compileSdk = 36
 
     defaultConfig {
-        // Branded install id. (Internal code namespace stays app.freediumshare.)
-        applicationId = "com.mrbadasss.freedium"
+        // Branded install id. (Internal code namespace stays app.freediumpro.)
+        applicationId = "com.mrbadasss.freediumpro"
         minSdk = 29
         // 35 keeps the classic (non edge-to-edge, non predictive-back) window behaviour.
         targetSdk = 35
-        versionCode = 11
-        versionName = "3.8"
+        versionCode = 13
+        versionName = "4.1"
     }
 
     signingConfigs {
@@ -51,5 +51,6 @@ android {
 }
 
 dependencies {
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     testImplementation("junit:junit:4.13.2")
 }

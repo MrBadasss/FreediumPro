@@ -45,6 +45,14 @@
         </LinearLayout>
     </LinearLayout>
 
+    <View
+        android:id="@+id/reading_progress"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:layout_gravity="bottom"
+        android:background="@color/brand"
+        android:visibility="gone" />
+
     <ProgressBar
         android:id="@+id/progress"
         style="@android:style/Widget.Material.ProgressBar.Horizontal"

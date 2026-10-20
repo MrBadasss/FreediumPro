@@ -1,4 +1,4 @@
-package app.freediumshare;
+package app.freediumpro;
 
 import android.os.Handler;
 import android.os.Looper;

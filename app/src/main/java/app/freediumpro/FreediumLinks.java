@@ -1,4 +1,4 @@
-package app.freediumshare;
+package app.freediumpro;
 
 import java.net.URI;
 import java.util.Locale;
@@ -80,6 +80,24 @@ public final class FreediumLinks {
         if (host == null) return false;
         host = host.toLowerCase(Locale.ROOT);
         return host.equals("medium.com") || host.endsWith(".medium.com");
+    }
+
+    /** Other paywalled sites Freedium can unlock, in addition to Medium. */
+    private static final String[] SUPPORTED_SUFFIXES = {
+            "nytimes.com", "washingtonpost.com", "bloomberg.com", "reuters.com",
+            "economist.com", "ft.com", "theathletic.com", "quora.com",
+            "towardsdatascience.com", "medium.freecodecamp.org",
+    };
+
+    /** Hosts the app will route through Freedium (Medium plus other supported publishers). */
+    public static boolean isSupportedHost(String host) {
+        if (isMediumHost(host)) return true;
+        if (host == null) return false;
+        host = host.toLowerCase(Locale.ROOT);
+        for (String suffix : SUPPORTED_SUFFIXES) {
+            if (host.equals(suffix) || host.endsWith("." + suffix)) return true;
+        }
+        return false;
     }
 
     /** Heuristic: does this Medium URL point at an article (vs the feed, a profile, settings)? */

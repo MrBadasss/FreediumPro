@@ -1,87 +1,76 @@
-# Freedium for Medium
+# Freedium Pro
 
-A tiny Android app (≈49 KB, no third-party libraries): a Medium browser that falls back to
-[Freedium](https://freedium-mirror.cfd) for stories you can't read.
+An Android Medium reader that falls back to [Freedium](https://freedium-mirror.cfd) for stories you
+can't read, plus reading tools. No analytics, one permission (INTERNET).
+Install id `com.mrbadasss.freediumpro`, code namespace `app.freediumpro`.
 
 ## What it does
 
-- **Opens to your Medium feed.** The home screen is the real `medium.com` in a WebView with a
-  persistent session, so you land on your own logged-in dashboard.
-- **Paid articles auto-open via Freedium.** When you open a member-only story you *can't* read,
-  the app detects the paywall gate and reopens it through Freedium. Stories you *can* read as a
-  member stay on Medium. Detection is best-effort — see the caveat below.
-- **Floating "Read free" button** on any Medium article — one tap sends the current article
-  through Freedium, whatever the auto-detection decided.
-- **Also a share / open-with target.** Share a Medium link from anywhere, select a link and pick
-  "Read on Freedium", or tap a medium.com link once the app is set as the default handler.
+- **Opens to your Medium feed** — the real `medium.com` in a full-screen WebView (your logged-in
+  session), with no duplicate app bar. Pull down to refresh.
+- **Paid articles → Freedium** — a member-only story you can't read auto-opens through Freedium
+  (detection ported from the MrBadasss userscript: `al:android:url` meta + "Member-only").
+- **Draggable unlock button** — shows on article pages; one tap reads it free. Elsewhere it's a
+  menu dot (tap = menu, long-press = menu).
+- **Share / open-with target** — share a Medium (or NYT, WaPo, Bloomberg, Reuters, Economist, FT,
+  The Athletic) link from anywhere, or from the Medium app, and it opens via Freedium.
+- **Blocks the "Open in app → Play Store" trap** and hides Freedium's donation drawer and
+  announcement toasts.
 
-### Supported link formats
+## Reader tools
 
-`medium.com/@user/slug`, `medium.com/p/<id>`, any `*.medium.com` subdomain, `link.medium.com`
-short links (resolved by following the redirect first), and Medium-hosted custom-domain blogs.
-Tracking params (`source`, `utm_*`, `ref`, Branch ids) are stripped; friend-link `?sk=` is kept.
+Text bigger/smaller, reading theme (default / sepia / dark), a reading-progress bar, **read aloud**
+(system TTS), **save to list**, **save for offline** (web archive), share/copy the Freedium link,
+open in browser, open the original. **Automatic mirror failover** — if one Freedium mirror is down
+it tries the next.
 
-### Settings
+## Library
 
-- **Auto-open paywalled articles via Freedium** toggle.
-- **Open Medium links in this app** — jumps to Android's *Open by default* screen.
-- **Sign out of Medium** — clears the in-app cookies/session.
-- **Freedium mirror** — editable domain with a reachability **Test** (default
-  `https://freedium-mirror.cfd`), in case Freedium moves.
-- **Open a link via Freedium** — paste any Medium URL.
+Reading list (**Saved**) and **History** of recently-read articles, reachable from the menu.
+Offline-saved items open without network.
 
-## Caveat on paywall detection
+## Convenience
 
-Medium does not cleanly mark "this reader can't see this story". The app looks for the
-*member-only* badge together with an upgrade/sign-up gate and treats that as locked. It can miss
-or misfire as Medium changes its markup, so the **Read free** button is always the reliable path.
+- **Clipboard prompt** — on launch, offers to open a copied Medium link.
+- **App shortcuts** (long-press icon): "Paste & read" and "Saved articles".
+- **Quick Settings tile** — paste & read from the notification shade.
 
-## Floating button over the Medium app (optional, opt-in)
+## Settings
 
-An accessibility service (`MediumWatchService`) can float a "Read free" bubble over the **official
-Medium app**. It is **scoped to `com.medium.reader` only**, reads on-screen text **on-device**
-(never sent anywhere), and is off until you enable it in Settings:
+Auto-route toggle · **App logo** picker (Unlocked / Key / Reader / Monogram) that also sets the
+home-screen icon · open-by-default shortcut · Medium sign-out · Freedium mirror editor + Test +
+**Find a working mirror** · Maintenance: clear cache, back up / restore settings (JSON).
 
-1. **Allow drawing over other apps** (`SYSTEM_ALERT_WINDOW`).
-2. **Enable the Medium watcher** (Accessibility settings → Installed apps).
+## Branding
 
-When the Medium app shows a member-only story (detected by the on-screen "Member-only" text,
-the accessibility analogue of the userscript's DOM check), a draggable bubble appears. **One tap:**
-the service opens Medium's Share sheet, clicks **Copy link**, and launches the reader, which reads
-the copied URL and opens it via Freedium — no chooser to navigate. If "Copy link" isn't found it
-falls back to auto-selecting the "Read on Freedium" share entry, then to a manual prompt.
-
-**Why via Share/clipboard:** the native Medium app is not a web page — there is no DOM and no article
-URL exposed to other apps. The only reliable way to get the exact URL is Medium's own Share/Copy, so
-the flow is bubble → Copy link → clipboard → Freedium, not a silent scrape. The browser/WebView paths
-above remain the most seamless; this is for reading inside the native Medium app.
-
-## Fewer distractions in the reader
-
-The reader injects a small script that hides Freedium's donation drawer (shadcn/Vaul
-`drawer-overlay`/`drawer-content`) and keeps the page scrollable, re-applying as the page re-renders,
-so articles open straight to the content.
+A brief launch splash (logo + "CONTRIBUTED BY / Mr_Badasss") and a different reader loading
+animation (spinning ring + "unlocking…"). Both are built in code, not editable resources — though
+no distributed APK is truly tamper-proof.
 
 ## Build
 
-Requires JDK 17+ and the Android SDK (platform 36). `local.properties` points at the SDK.
+JDK 17+ and the Android SDK (platform 36). `local.properties` points at the SDK.
 
 ```bash
-./gradlew testDebugUnitTest   # unit tests for link handling
+./gradlew testDebugUnitTest
 ./gradlew assembleRelease     # app/build/outputs/apk/release/app-release.apk
 ```
 
-Release signing reads `keystore.properties` + `freedium-release.jks` (both git-ignored).
-Keep them: updates must be signed with the same key to install over an existing version.
+Release signing reads `keystore.properties` + `freedium-release.jks` (git-ignored). Updates must be
+signed with the same key.
 
-## Layout
+## Source layout (`app/src/main/java/app/freediumpro/`)
 
 | File | Purpose |
 | --- | --- |
-| `FreediumLinks.java` | URL extraction, tracking cleanup, host/article recognition, Freedium URL building (pure Java, unit tested) |
+| `FreediumLinks.java` | URL/host/article detection, tracking cleanup, Freedium URL building (unit tested) |
 | `LinkResolver.java` | Follows short-link redirects off the main thread |
-| `HomeActivity.java` | medium.com browser: feed, paywall auto-route, floating "Read free" button |
-| `ReaderActivity.java` | Share / view / process-text target with the Freedium WebView reader and retry page |
-| `SettingsActivity.java` | Auto-route toggle, floating-bubble setup, mirror editor + test, default-handler shortcut, Medium sign-out |
-| `MediumWatchService.java` | Accessibility service (Medium-only) that floats the "Read free" bubble on member-only articles and hands the URL to Freedium via Medium Share |
-| `Prefs.java` | Stores the mirror and the auto-route preference |
+| `HomeActivity.java` | medium.com browser: paywall auto-route, draggable unlock button, pull-to-refresh, clipboard prompt |
+| `ReaderActivity.java` | Freedium reader: font/theme, progress, TTS, save/offline, mirror failover, cleanups |
+| `LibraryActivity.java` | Saved + history lists |
+| `SettingsActivity.java` | Auto-route, logo/app-icon, mirror tools, maintenance, backup/restore |
+| `Store.java` | Reading list + history persistence |
+| `Prefs.java` | Preferences (mirror, auto-route, font, theme, logo) + backup JSON |
+| `Branding.java` | Launch + reader loading animations |
+| `LauncherIcons.java` | Switches the home-screen icon via activity-aliases |
+| `QsTileService.java` | Quick Settings tile |

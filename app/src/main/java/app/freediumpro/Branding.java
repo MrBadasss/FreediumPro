@@ -1,4 +1,4 @@
-package app.freediumshare;
+package app.freediumpro;
 
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;

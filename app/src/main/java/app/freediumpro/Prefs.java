@@ -1,4 +1,4 @@
-package app.freediumshare;
+package app.freediumpro;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -11,8 +11,28 @@ final class Prefs {
     private static final String KEY_FAB_X = "fab_x";
     private static final String KEY_FAB_Y = "fab_y";
     private static final String KEY_LOGO = "logo";
+    private static final String KEY_FONT = "font_scale";
+    private static final String KEY_READER_THEME = "reader_theme";
 
     private Prefs() {}
+
+    /** Reader text zoom percent (WebSettings.setTextZoom). */
+    static int fontScale(Context context) {
+        return prefs(context).getInt(KEY_FONT, 100);
+    }
+
+    static void setFontScale(Context context, int percent) {
+        prefs(context).edit().putInt(KEY_FONT, percent).apply();
+    }
+
+    /** 0 = default, 1 = sepia, 2 = dark. */
+    static int readerTheme(Context context) {
+        return prefs(context).getInt(KEY_READER_THEME, 0);
+    }
+
+    static void setReaderTheme(Context context, int theme) {
+        prefs(context).edit().putInt(KEY_READER_THEME, theme).apply();
+    }
 
     /** Index into Branding.MARKS of the chosen app logo. */
     static int logo(Context context) {
@@ -56,6 +76,37 @@ final class Prefs {
 
     static void resetMirror(Context context) {
         prefs(context).edit().remove(KEY_MIRROR).apply();
+    }
+
+    static String exportJson(Context c) {
+        try {
+            org.json.JSONObject o = new org.json.JSONObject();
+            o.put("mirror", mirror(c));
+            o.put("autoRoute", autoRoute(c));
+            o.put("font", fontScale(c));
+            o.put("theme", readerTheme(c));
+            o.put("logo", logo(c));
+            return o.toString(2);
+        } catch (Exception e) {
+            return "{}";
+        }
+    }
+
+    static boolean importJson(Context c, String json) {
+        try {
+            org.json.JSONObject o = new org.json.JSONObject(json);
+            if (o.has("mirror")) {
+                String m = FreediumLinks.normalizeMirror(o.optString("mirror"));
+                if (m != null) setMirror(c, m);
+            }
+            if (o.has("autoRoute")) setAutoRoute(c, o.optBoolean("autoRoute", true));
+            if (o.has("font")) setFontScale(c, o.optInt("font", 100));
+            if (o.has("theme")) setReaderTheme(c, o.optInt("theme", 0));
+            if (o.has("logo")) setLogo(c, o.optInt("logo", 0));
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static SharedPreferences prefs(Context context) {

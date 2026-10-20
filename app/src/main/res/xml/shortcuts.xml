@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="paste"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher_0"
+        android:shortcutShortLabel="@string/sc_paste">
+        <intent
+            android:action="app.freediumpro.PASTE"
+            android:targetPackage="com.mrbadasss.freediumpro"
+            android:targetClass="app.freediumpro.HomeActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="saved"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher_0"
+        android:shortcutShortLabel="@string/sc_saved">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.mrbadasss.freediumpro"
+            android:targetClass="app.freediumpro.LibraryActivity" />
+    </shortcut>
+</shortcuts>

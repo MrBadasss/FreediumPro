@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/action_font_bigger" android:title="@string/font_bigger" />
+    <item android:id="@+id/action_font_smaller" android:title="@string/font_smaller" />
+    <item android:id="@+id/action_theme" android:title="@string/reader_theme" />
+    <item android:id="@+id/action_save" android:title="@string/save_action" />
+    <item android:id="@+id/action_save_offline" android:title="@string/save_offline_action" />
+    <item android:id="@+id/action_read_aloud" android:title="@string/read_aloud" />
     <item android:id="@+id/action_refresh" android:title="@string/refresh" />
     <item android:id="@+id/action_share" android:title="@string/share_link" />
     <item android:id="@+id/action_copy" android:title="@string/copy_link" />

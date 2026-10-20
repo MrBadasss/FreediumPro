@@ -11,17 +11,50 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <!-- Launcher: the genuine medium.com (your logged-in feed), with Freedium fallback. -->
+        <!-- The real screen; the launcher entry comes from the aliases below. -->
         <activity
             android:name=".HomeActivity"
             android:exported="true"
             android:theme="@style/AppTheme.NoActionBar"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden">
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity>
+
+        <!-- Four interchangeable launcher icons (one enabled at a time). -->
+        <activity-alias android:name=".Alias0" android:targetActivity=".HomeActivity"
+            android:exported="true" android:enabled="true"
+            android:icon="@mipmap/ic_launcher_0" android:roundIcon="@mipmap/ic_launcher_0">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+        <activity-alias android:name=".Alias1" android:targetActivity=".HomeActivity"
+            android:exported="true" android:enabled="false"
+            android:icon="@mipmap/ic_launcher_1" android:roundIcon="@mipmap/ic_launcher_1">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Alias2" android:targetActivity=".HomeActivity"
+            android:exported="true" android:enabled="false"
+            android:icon="@mipmap/ic_launcher_2" android:roundIcon="@mipmap/ic_launcher_2">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Alias3" android:targetActivity=".HomeActivity"
+            android:exported="true" android:enabled="false"
+            android:icon="@mipmap/ic_launcher_3" android:roundIcon="@mipmap/ic_launcher_3">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <!-- Reader: receives shared / opened / selected links and shows them via Freedium. -->
         <activity
@@ -30,21 +63,19 @@
             android:label="@string/share_label"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden">
 
-            <!-- "Share" from the Medium app or any browser. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
 
-            <!-- Selected text menu. -->
             <intent-filter>
                 <action android:name="android.intent.action.PROCESS_TEXT" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
 
-            <!-- "Open with" for medium.com links. -->
+            <!-- "Open with" for Medium and other supported publishers. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -52,6 +83,14 @@
                 <data android:scheme="https" />
                 <data android:host="medium.com" />
                 <data android:host="*.medium.com" />
+                <data android:host="*.nytimes.com" />
+                <data android:host="www.washingtonpost.com" />
+                <data android:host="www.bloomberg.com" />
+                <data android:host="www.reuters.com" />
+                <data android:host="www.economist.com" />
+                <data android:host="www.ft.com" />
+                <data android:host="www.theathletic.com" />
+                <data android:host="towardsdatascience.com" />
             </intent-filter>
         </activity>
 
@@ -60,5 +99,23 @@
             android:name=".SettingsActivity"
             android:exported="false"
             android:label="@string/settings" />
+
+        <!-- Reading list + history. -->
+        <activity
+            android:name=".LibraryActivity"
+            android:exported="false"
+            android:label="@string/library" />
+
+        <!-- Quick Settings tile: paste & read. -->
+        <service
+            android:name=".QsTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_qs"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

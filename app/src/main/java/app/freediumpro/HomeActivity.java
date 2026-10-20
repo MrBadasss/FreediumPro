@@ -1,4 +1,4 @@
-package app.freediumshare;
+package app.freediumpro;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -21,6 +21,8 @@ import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
 /**
  * Launcher screen: the genuine medium.com (your logged-in feed) in a full-screen WebView, with no
  * app chrome of our own (Medium has its own header). A small draggable button shows an unlock icon
@@ -29,6 +31,7 @@ import android.widget.Toast;
 public class HomeActivity extends Activity {
 
     private static final String HOME = "https://medium.com/";
+    static final String ACTION_PASTE = "app.freediumpro.PASTE";
 
     // Article + paywall detection, ported from the user's userscript: the al:android:url meta marks
     // a Medium article; "Member-only" + an upgrade gate marks one this account can't read.
@@ -66,11 +69,14 @@ public class HomeActivity extends Activity {
     };
 
     private WebView webView;
+    private SwipeRefreshLayout swipe;
     private ProgressBar progress;
     private ImageButton fab;
     private String routedUrl;
     private String lastUrl;
     private boolean onArticle;
+    private boolean clipChecked;
+    private String clipUrl;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,10 +84,13 @@ public class HomeActivity extends Activity {
         setContentView(R.layout.activity_home);
         progress = findViewById(R.id.progress);
         webView = findViewById(R.id.web);
+        swipe = findViewById(R.id.swipe);
+        swipe.setOnRefreshListener(() -> webView.reload());
         fab = findViewById(R.id.fab);
         fab.setTranslationX(Prefs.fabX(this));
         fab.setTranslationY(Prefs.fabY(this));
         fab.setOnTouchListener(new DragClick());
+        findViewById(R.id.clip_dismiss).setOnClickListener(v -> findViewById(R.id.clip_bar).setVisibility(View.GONE));
         setUpWebView();
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
             webView.loadUrl(startUrl(getIntent()));
@@ -140,6 +149,7 @@ public class HomeActivity extends Activity {
 
             @Override
             public void onPageFinished(WebView view, String url) {
+                swipe.setRefreshing(false);
                 view.evaluateJavascript(HIDE_OPENAPP_JS, null);
                 checkUrl();
             }
@@ -193,6 +203,8 @@ public class HomeActivity extends Activity {
             int id = item.getItemId();
             if (id == R.id.action_read_free) {
                 openViaFreedium(webView.getUrl());
+            } else if (id == R.id.action_library) {
+                startActivity(new Intent(this, LibraryActivity.class));
             } else if (id == R.id.action_reload) {
                 webView.reload();
             } else if (id == R.id.action_home) {
@@ -223,6 +235,44 @@ public class HomeActivity extends Activity {
         return host.contains("google.com") || host.contains("facebook.com")
                 || host.contains("apple.com") || host.contains("twitter.com")
                 || host.contains("x.com") || host.contains("accounts.");
+    }
+
+    /** First time the window gains focus, offer to open a Medium link sitting on the clipboard. */
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (!hasFocus || clipChecked) return;
+        clipChecked = true;
+        try {
+            android.content.ClipboardManager cm = getSystemService(android.content.ClipboardManager.class);
+            android.content.ClipData clip = cm == null ? null : cm.getPrimaryClip();
+            CharSequence t = clip != null && clip.getItemCount() > 0 ? clip.getItemAt(0).coerceToText(this) : null;
+            String url = FreediumLinks.extractUrl(t == null ? null : t.toString());
+            if (url != null && FreediumLinks.isSupportedHost(FreediumLinks.hostOf(url))) {
+                clipUrl = url;
+                // Launched from the shortcut/tile: open it straight away.
+                if (ACTION_PASTE.equals(getIntent().getAction())) {
+                    getIntent().setAction(null);
+                    openClip();
+                    return;
+                }
+                View bar = findViewById(R.id.clip_bar);
+                bar.setVisibility(View.VISIBLE);
+                findViewById(R.id.clip_open).setOnClickListener(v -> {
+                    bar.setVisibility(View.GONE);
+                    openClip();
+                });
+            } else if (ACTION_PASTE.equals(getIntent().getAction())) {
+                Toast.makeText(this, R.string.clip_none, Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void openClip() {
+        if (clipUrl == null) return;
+        startActivity(new Intent(this, ReaderActivity.class).setAction(Intent.ACTION_SEND)
+                .setType("text/plain").putExtra(Intent.EXTRA_TEXT, clipUrl));
     }
 
     @Override

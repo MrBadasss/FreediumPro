@@ -48,6 +48,13 @@
             android:gravity="center"
             android:orientation="horizontal" />
 
+        <Button
+            android:id="@+id/app_icon_button"
+            style="@android:style/Widget.Material.Button.Borderless.Colored"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/set_app_icon" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -150,6 +157,55 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/save" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/fastest_button"
+            style="@android:style/Widget.Material.Button.Borderless.Colored"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/find_fastest" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginVertical="16dp"
+            android:background="?android:attr/listDivider" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/maintenance"
+            android:textAppearance="@android:style/TextAppearance.Material.Subhead" />
+
+        <Button
+            android:id="@+id/clearcache_button"
+            style="@android:style/Widget.Material.Button.Borderless.Colored"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/clear_cache" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/backup_button"
+                style="@android:style/Widget.Material.Button.Borderless.Colored"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/backup" />
+
+            <Button
+                android:id="@+id/restore_button"
+                style="@android:style/Widget.Material.Button.Borderless.Colored"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/restore" />
         </LinearLayout>
     </LinearLayout>
 </ScrollView>
