@@ -27,18 +27,26 @@ public class HomeActivity extends Activity {
 
     private static final String HOME = "https://medium.com/";
 
-    // Best-effort paywall check: "Member-only story" badge AND an upgrade/sign-up gate
-    // (members who can read the story see the badge but no gate, so they stay on Medium).
+    // Detection ported from MrBadasss/Redirect-Medium-Paid-Member-only-Articles-to-Freedium:
+    // a page is a Medium article when it carries the al:android:url=medium://p/ meta tag, and
+    // it's paywalled when the body text contains "Member-only". We additionally require an
+    // upgrade/sign-up gate so a signed-in member reading a member-only story they CAN access
+    // stays on Medium instead of being bounced to Freedium.
     private static final String PAYWALL_JS =
-            "(function(){try{var b=document.body?document.body.innerText:'';"
-            + "if(/Member-only story/i.test(b)&&/(Upgrade to read|Become a member|members? only|"
-            + "Sign up to read this story|to read the rest)/i.test(b))return 'locked';"
-            + "return 'open';}catch(e){return 'open';}})()";
+            "(function(){try{"
+            + "var a=document.querySelector('meta[property=\"al:android:url\"][content^=\"medium://p/\"]');"
+            + "if(!a)return 'not_article';"
+            + "var b=document.body?document.body.innerText:'';"
+            + "if(b.indexOf('Member-only')<0)return 'open';"
+            + "return /(Upgrade to read|Become a member|Sign up to read this story|to read the rest|"
+            + "Get unlimited access)/i.test(b)?'locked':'open';"
+            + "}catch(e){return 'open';}})()";
 
     private WebView webView;
     private ProgressBar progress;
     private Button readFree;
     private String routedUrl; // guards against re-routing the same page
+    private boolean currentIsArticle; // last DOM article check for the visible page
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -100,21 +108,23 @@ public class HomeActivity extends Activity {
 
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                currentIsArticle = false;
                 readFree.setVisibility(View.GONE);
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
-                boolean article = FreediumLinks.looksLikeArticle(url);
-                readFree.setVisibility(article ? View.VISIBLE : View.GONE);
-                if (article && Prefs.autoRoute(HomeActivity.this) && !url.equals(routedUrl)) {
-                    view.evaluateJavascript(PAYWALL_JS, value -> {
-                        if ("\"locked\"".equals(value)) {
-                            routedUrl = url;
-                            openViaFreedium(url);
-                        }
-                    });
-                }
+                // Ask the page (DOM) whether it's a Medium article and whether it's locked.
+                view.evaluateJavascript(PAYWALL_JS, value -> {
+                    boolean article = !"\"not_article\"".equals(value);
+                    currentIsArticle = article;
+                    readFree.setVisibility(article ? View.VISIBLE : View.GONE);
+                    if (article && "\"locked\"".equals(value)
+                            && Prefs.autoRoute(HomeActivity.this) && !url.equals(routedUrl)) {
+                        routedUrl = url;
+                        openViaFreedium(url);
+                    }
+                });
             }
         });
     }
@@ -128,7 +138,9 @@ public class HomeActivity extends Activity {
 
     /** Opens the given Medium article through Freedium in the reader. */
     private void openViaFreedium(String url) {
-        if (!FreediumLinks.looksLikeArticle(url)) {
+        boolean isArticle = FreediumLinks.looksLikeArticle(url)
+                || (currentIsArticle && FreediumLinks.isMediumHost(FreediumLinks.hostOf(url)));
+        if (!isArticle) {
             Toast.makeText(this, R.string.not_an_article, Toast.LENGTH_SHORT).show();
             return;
         }
