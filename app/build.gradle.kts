@@ -15,12 +15,13 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "app.freediumshare"
+        // Branded install id. (Internal code namespace stays app.freediumshare.)
+        applicationId = "com.mrbadasss.freedium"
         minSdk = 29
         // 35 keeps the classic (non edge-to-edge, non predictive-back) window behaviour.
         targetSdk = 35
-        versionCode = 10
-        versionName = "3.7"
+        versionCode = 11
+        versionName = "3.8"
     }
 
     signingConfigs {

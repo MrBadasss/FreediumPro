@@ -17,6 +17,10 @@
     <string name="auto_route_title">Auto-open paywalled articles via Freedium</string>
     <string name="auto_route_help">When you open a member-only story you can\'t read, it opens through Freedium automatically. Stories you can read as a member stay on Medium. Detection is best-effort; the unlock button always works.</string>
 
+    <string name="logo_title">App logo</string>
+    <string name="logo_help">Pick the logo used on the loading screens.</string>
+    <string name="logo_selected">Logo updated</string>
+
     <string name="set_default">Open Medium links in this app</string>
     <string name="set_default_help">Opens Android settings → turn on "Open supported links" and add medium.com, so tapping a Medium link opens here.</string>
 

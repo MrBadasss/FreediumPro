@@ -10,8 +10,18 @@ final class Prefs {
     private static final String KEY_AUTO_ROUTE = "auto_route";
     private static final String KEY_FAB_X = "fab_x";
     private static final String KEY_FAB_Y = "fab_y";
+    private static final String KEY_LOGO = "logo";
 
     private Prefs() {}
+
+    /** Index into Branding.MARKS of the chosen app logo. */
+    static int logo(Context context) {
+        return prefs(context).getInt(KEY_LOGO, 0);
+    }
+
+    static void setLogo(Context context, int index) {
+        prefs(context).edit().putInt(KEY_LOGO, index).apply();
+    }
 
     /** Remembered drag offset of the floating button (pixels from its default bottom-end anchor). */
     static float fabX(Context context) {

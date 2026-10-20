@@ -44,7 +44,37 @@ public class SettingsActivity extends Activity {
         autoRoute.setChecked(Prefs.autoRoute(this));
         autoRoute.setOnCheckedChangeListener((CompoundButton b, boolean on) -> Prefs.setAutoRoute(this, on));
 
+        buildLogoPicker();
         showMirror();
+    }
+
+    /** A row of circular logo choices; the selected one gets a green ring. */
+    private void buildLogoPicker() {
+        android.widget.LinearLayout row = findViewById(R.id.logo_row);
+        row.removeAllViews();
+        int size = Math.round(56 * getResources().getDisplayMetrics().density);
+        int gap = Math.round(10 * getResources().getDisplayMetrics().density);
+        int pad = Math.round(12 * getResources().getDisplayMetrics().density);
+        int selected = Prefs.logo(this);
+        for (int i = 0; i < Branding.MARKS.length; i++) {
+            final int index = i;
+            android.widget.ImageView chip = new android.widget.ImageView(this);
+            chip.setBackgroundResource(R.drawable.circle_bg);
+            chip.setImageResource(Branding.MARKS[i]);
+            chip.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
+            chip.setPadding(pad, pad, pad, pad);
+            chip.setForeground(i == selected ? getDrawable(R.drawable.ring_select) : null);
+            chip.setContentDescription(Branding.MARK_NAMES[i]);
+            chip.setOnClickListener(v -> {
+                Prefs.setLogo(this, index);
+                buildLogoPicker();
+                Toast.makeText(this, R.string.logo_selected, Toast.LENGTH_SHORT).show();
+            });
+            android.widget.LinearLayout.LayoutParams lp =
+                    new android.widget.LinearLayout.LayoutParams(size, size);
+            lp.setMarginEnd(gap);
+            row.addView(chip, lp);
+        }
     }
 
     private void showMirror() {

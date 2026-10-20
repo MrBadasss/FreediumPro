@@ -52,6 +52,7 @@ public class ReaderActivity extends Activity {
     private String mirror;
     private String originalUrl;
     private boolean failed;
+    private View loadingOverlay;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,6 +78,7 @@ public class ReaderActivity extends Activity {
             finish();
             return;
         }
+        loadingOverlay = Branding.showReaderLoading(this);
         load(originalUrl);
     }
 
@@ -160,7 +162,10 @@ public class ReaderActivity extends Activity {
 
             @Override
             public void onPageFinished(WebView view, String url) {
-                if (FreediumLinks.isOnMirror(mirror, url)) view.evaluateJavascript(CLEAN_JS, null);
+                if (FreediumLinks.isOnMirror(mirror, url)) {
+                    view.evaluateJavascript(CLEAN_JS, null);
+                    dismissLoading();
+                }
             }
         });
     }
@@ -169,7 +174,15 @@ public class ReaderActivity extends Activity {
         if (originalUrl != null) load(originalUrl);
     }
 
+    private void dismissLoading() {
+        if (loadingOverlay != null) {
+            Branding.dismiss(loadingOverlay);
+            loadingOverlay = null;
+        }
+    }
+
     private void showError() {
+        dismissLoading();
         failed = true;
         setTitle(R.string.app_name);
         progress.setVisibility(View.GONE);
