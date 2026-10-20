@@ -5,6 +5,8 @@ import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -46,7 +48,18 @@ public class HomeActivity extends Activity {
     private ProgressBar progress;
     private Button readFree;
     private String routedUrl; // guards against re-routing the same page
-    private boolean currentIsArticle; // last DOM article check for the visible page
+    private String lastUrl;   // last URL the watcher reacted to
+
+    // Medium's mobile site is a single-page app: in-app navigations don't fire onPageFinished,
+    // so a light watcher polls the current URL to keep the button and auto-route in sync.
+    private final Handler ui = new Handler(Looper.getMainLooper());
+    private final Runnable urlWatch = new Runnable() {
+        @Override
+        public void run() {
+            checkUrl();
+            ui.postDelayed(this, 700);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -108,23 +121,12 @@ public class HomeActivity extends Activity {
 
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
-                currentIsArticle = false;
                 readFree.setVisibility(View.GONE);
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
-                // Ask the page (DOM) whether it's a Medium article and whether it's locked.
-                view.evaluateJavascript(PAYWALL_JS, value -> {
-                    boolean article = !"\"not_article\"".equals(value);
-                    currentIsArticle = article;
-                    readFree.setVisibility(article ? View.VISIBLE : View.GONE);
-                    if (article && "\"locked\"".equals(value)
-                            && Prefs.autoRoute(HomeActivity.this) && !url.equals(routedUrl)) {
-                        routedUrl = url;
-                        openViaFreedium(url);
-                    }
-                });
+                checkUrl();
             }
         });
     }
@@ -136,11 +138,32 @@ public class HomeActivity extends Activity {
                 || host.contains("x.com") || host.contains("accounts.");
     }
 
+    /** The button only shows on article pages; show it or hide it based on the live URL. */
+    private void checkUrl() {
+        if (webView == null) return;
+        String url = webView.getUrl();
+        readFree.setVisibility(FreediumLinks.looksLikeArticle(url) ? View.VISIBLE : View.GONE);
+        if (url == null || url.equals(lastUrl)) return;
+        lastUrl = url;
+        if (FreediumLinks.looksLikeArticle(url) && Prefs.autoRoute(this)) {
+            maybeAutoRoute(url);                       // content may still be loading on an SPA nav,
+            ui.postDelayed(() -> maybeAutoRoute(url), 1500); // so check again shortly after.
+        }
+    }
+
+    private void maybeAutoRoute(String url) {
+        if (webView == null || url.equals(routedUrl) || !url.equals(webView.getUrl())) return;
+        webView.evaluateJavascript(PAYWALL_JS, value -> {
+            if ("\"locked\"".equals(value)) {
+                routedUrl = url;
+                openViaFreedium(url);
+            }
+        });
+    }
+
     /** Opens the given Medium article through Freedium in the reader. */
     private void openViaFreedium(String url) {
-        boolean isArticle = FreediumLinks.looksLikeArticle(url)
-                || (currentIsArticle && FreediumLinks.isMediumHost(FreediumLinks.hostOf(url)));
-        if (!isArticle) {
+        if (!FreediumLinks.looksLikeArticle(url)) {
             Toast.makeText(this, R.string.not_an_article, Toast.LENGTH_SHORT).show();
             return;
         }
@@ -188,6 +211,7 @@ public class HomeActivity extends Activity {
 
     @Override
     protected void onPause() {
+        ui.removeCallbacks(urlWatch);
         CookieManager.getInstance().flush();
         webView.onPause();
         super.onPause();
@@ -197,10 +221,13 @@ public class HomeActivity extends Activity {
     protected void onResume() {
         super.onResume();
         webView.onResume();
+        ui.removeCallbacks(urlWatch);
+        ui.post(urlWatch);
     }
 
     @Override
     protected void onDestroy() {
+        ui.removeCallbacks(urlWatch);
         webView.destroy();
         super.onDestroy();
     }
