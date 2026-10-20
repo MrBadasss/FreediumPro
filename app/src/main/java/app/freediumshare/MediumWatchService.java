@@ -1,7 +1,10 @@
 package app.freediumshare;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.Intent;
 import android.graphics.PixelFormat;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -14,21 +17,25 @@ import android.widget.Toast;
 
 /**
  * Watches only the Medium app. When a member-only article is on screen it shows a floating
- * "Read free" bubble; tapping it triggers Medium's own Share action so the article URL can be
- * handed to Freedium (the reader is the share target). Scoped to Medium + the share chooser;
- * screen text is read on-device only and never leaves the device.
+ * "Read free" bubble. One tap: the service opens Medium's Share sheet and clicks "Copy link",
+ * then launches the Freedium reader, which reads the copied URL — no chooser to navigate.
+ * Falls back to clicking our own share entry, then to a manual prompt. Screen text is read
+ * on-device only and never leaves the device.
  */
 public class MediumWatchService extends AccessibilityService {
 
     private static final String MEDIUM = "com.medium.reader";
-    private static final int NODE_BUDGET = 600;
-    private static final long ARM_WINDOW_MS = 9000;
+    private static final int NODE_BUDGET = 700;
+    private static final long SHARE_WINDOW_MS = 9000;
 
+    private final Handler main = new Handler(Looper.getMainLooper());
     private WindowManager windowManager;
     private View bubble;
     private WindowManager.LayoutParams params;
     private boolean overlayWarned;
-    private long armedAt; // when the bubble was last tapped (for auto-picking our chooser entry)
+
+    private boolean awaitingShareSheet; // true after a bubble tap, until we act on the share sheet
+    private long shareStartedAt;
 
     @Override
     protected void onServiceConnected() {
@@ -40,22 +47,17 @@ public class MediumWatchService extends AccessibilityService {
         CharSequence pkg = event.getPackageName();
         if (pkg == null) return;
 
-        // Right after the bubble is tapped, auto-select our entry in the share chooser.
-        if (armedAt > 0 && System.currentTimeMillis() - armedAt < ARM_WINDOW_MS && isChooser(pkg)) {
-            AccessibilityNodeInfo root = getRootInActiveWindow();
-            if (root != null) {
-                AccessibilityNodeInfo hit = findMatch(root, "read on freedium", new int[]{NODE_BUDGET});
-                if (hit == null) hit = findMatch(root, "freedium", new int[]{NODE_BUDGET});
-                if (hit != null) {
-                    clickable(hit).performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                    armedAt = 0;
-                }
+        // After a tap we wait for Medium's share sheet, then copy the link (or pick our entry).
+        if (awaitingShareSheet) {
+            if (System.currentTimeMillis() - shareStartedAt > SHARE_WINDOW_MS) {
+                awaitingShareSheet = false;
+            } else if (handleShareSheet()) {
+                return;
             }
-            return;
         }
 
         if (!MEDIUM.contentEquals(pkg)) {
-            hideBubble();
+            if (!awaitingShareSheet) hideBubble();
             return;
         }
         AccessibilityNodeInfo root = getRootInActiveWindow();
@@ -68,9 +70,56 @@ public class MediumWatchService extends AccessibilityService {
     public void onInterrupt() {}
 
     @Override
-    public boolean onUnbind(android.content.Intent intent) {
+    public boolean onUnbind(Intent intent) {
         hideBubble();
         return super.onUnbind(intent);
+    }
+
+    // --- one-tap share handling ---
+
+    /** Tapped: open Medium's Share so a sheet with "Copy link" / our entry appears. */
+    private void onBubbleTap() {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        AccessibilityNodeInfo share = root == null ? null : findMatch(root, "share", new int[]{NODE_BUDGET});
+        if (share != null) {
+            awaitingShareSheet = true;
+            shareStartedAt = System.currentTimeMillis();
+            clickable(share).performAction(AccessibilityNodeInfo.ACTION_CLICK);
+        } else {
+            Toast.makeText(this, R.string.tap_share_manually, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** Returns true once it has acted on the share sheet (copied the link or picked our app). */
+    private boolean handleShareSheet() {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) return false;
+
+        // Preferred: "Copy link" / "Copy" puts the URL on the clipboard with no further choosing.
+        AccessibilityNodeInfo copy = findMatch(root, "copy link", new int[]{NODE_BUDGET});
+        if (copy == null) copy = findMatch(root, "copy", new int[]{NODE_BUDGET});
+        if (copy != null) {
+            clickable(copy).performAction(AccessibilityNodeInfo.ACTION_CLICK);
+            awaitingShareSheet = false;
+            main.postDelayed(this::launchReaderFromClipboard, 350);
+            return true;
+        }
+
+        // Fallback: pick our own entry in the chooser.
+        AccessibilityNodeInfo mine = findMatch(root, "read on freedium", new int[]{NODE_BUDGET});
+        if (mine == null) mine = findMatch(root, "freedium", new int[]{NODE_BUDGET});
+        if (mine != null) {
+            clickable(mine).performAction(AccessibilityNodeInfo.ACTION_CLICK);
+            awaitingShareSheet = false;
+            return true;
+        }
+        return false; // sheet not ready yet; wait for the next event
+    }
+
+    private void launchReaderFromClipboard() {
+        startActivity(new Intent(this, ReaderActivity.class)
+                .setAction(ReaderActivity.ACTION_FROM_CLIPBOARD)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP));
     }
 
     // --- bubble ---
@@ -107,21 +156,8 @@ public class MediumWatchService extends AccessibilityService {
         bubble = null;
     }
 
-    /** Tapped: ask Medium to share the current article; the chooser hands the URL to Freedium. */
-    private void onBubbleTap() {
-        armedAt = System.currentTimeMillis();
-        AccessibilityNodeInfo root = getRootInActiveWindow();
-        AccessibilityNodeInfo share = root == null ? null : findMatch(root, "share", new int[]{NODE_BUDGET});
-        if (share != null) {
-            clickable(share).performAction(AccessibilityNodeInfo.ACTION_CLICK);
-        } else {
-            Toast.makeText(this, R.string.tap_share_manually, Toast.LENGTH_LONG).show();
-        }
-    }
-
     // --- node search ---
 
-    /** Depth-first search for a node whose text or description contains needle (lower-case). */
     private AccessibilityNodeInfo findMatch(AccessibilityNodeInfo node, String needle, int[] budget) {
         if (node == null || budget[0] <= 0) return null;
         budget[0]--;
@@ -140,12 +176,6 @@ public class MediumWatchService extends AccessibilityService {
         AccessibilityNodeInfo c = node;
         while (c != null && !c.isClickable()) c = c.getParent();
         return c != null ? c : node;
-    }
-
-    private boolean isChooser(CharSequence pkg) {
-        String p = pkg.toString();
-        return p.equals("android") || p.contains("intentresolver") || p.contains("resolver")
-                || p.contains("sharesheet");
     }
 
     private int dp(int v) {
@@ -172,9 +202,8 @@ public class MediumWatchService extends AccessibilityService {
                     int dx = (int) (e.getRawX() - touchX);
                     int dy = (int) (e.getRawY() - touchY);
                     if (Math.abs(dx) > dp(6) || Math.abs(dy) > dp(6)) moved = true;
-                    // gravity is BOTTOM|END, so x grows leftward and y grows upward
-                    params.x = Math.max(0, startX - dx);
-                    params.y = Math.max(0, startY - dy);
+                    params.x = Math.max(0, startX - dx); // gravity END: x grows leftward
+                    params.y = Math.max(0, startY - dy); // gravity BOTTOM: y grows upward
                     windowManager.updateViewLayout(bubble, params);
                     return true;
                 case MotionEvent.ACTION_UP:

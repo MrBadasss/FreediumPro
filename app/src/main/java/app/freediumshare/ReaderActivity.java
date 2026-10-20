@@ -28,6 +28,25 @@ public class ReaderActivity extends Activity {
 
     private static final String STATE_ORIGINAL = "original";
 
+    /** Launched by the Medium-app bubble: the article URL is on the clipboard. */
+    static final String ACTION_FROM_CLIPBOARD = "app.freediumshare.FROM_CLIPBOARD";
+
+    // Hides Freedium's donation drawer / overlays and keeps the page scrollable, re-applying as
+    // the Svelte app re-renders. Targets shadcn/Vaul drawer slots, not the article.
+    private static final String CLEAN_JS =
+            "(function(){try{if(window.__fzClean)return;window.__fzClean=1;"
+            + "var c='[data-slot=\"drawer-overlay\"],[data-slot=\"drawer-content\"],"
+            + "[data-vaul-overlay],[vaul-overlay],[data-vaul-drawer]"
+            + "{display:none!important;visibility:hidden!important;}';"
+            + "var s=document.createElement('style');s.textContent=c;"
+            + "(document.head||document.documentElement).appendChild(s);"
+            + "function u(){try{var b=document.body;if(!b)return;b.style.overflow='';"
+            + "b.style.position='';b.style.top='';b.removeAttribute('data-vaul-drawer-wrapper');"
+            + "document.documentElement.style.overflow='';}catch(e){}}u();"
+            + "new MutationObserver(u).observe(document.documentElement,{childList:true,"
+            + "subtree:true,attributes:true,attributeFilter:['style','data-vaul-drawer-wrapper']});"
+            + "}catch(e){}})();";
+
     private WebView webView;
     private ProgressBar progress;
     private View errorView;
@@ -35,6 +54,7 @@ public class ReaderActivity extends Activity {
     private String mirror;
     private String originalUrl;
     private boolean failed;
+    private boolean pendingClipboard;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +74,12 @@ public class ReaderActivity extends Activity {
             return;
         }
 
+        if (ACTION_FROM_CLIPBOARD.equals(getIntent().getAction())) {
+            // The URL was copied by the bubble; read it once the window has focus (clipboard rule).
+            pendingClipboard = true;
+            setTitle(R.string.loading);
+            return;
+        }
         originalUrl = FreediumLinks.extractUrl(sharedText(getIntent()));
         if (originalUrl == null) {
             Toast.makeText(this, R.string.no_link, Toast.LENGTH_LONG).show();
@@ -61,6 +87,28 @@ public class ReaderActivity extends Activity {
             return;
         }
         load(originalUrl);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (!pendingClipboard || !hasFocus) return;
+        pendingClipboard = false;
+        String url = FreediumLinks.extractUrl(clipboardText());
+        if (url == null || !FreediumLinks.isMediumHost(FreediumLinks.hostOf(url))) {
+            Toast.makeText(this, R.string.no_link, Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+        originalUrl = url;
+        load(url);
+    }
+
+    private String clipboardText() {
+        ClipboardManager cm = getSystemService(ClipboardManager.class);
+        ClipData clip = cm == null ? null : cm.getPrimaryClip();
+        CharSequence t = clip != null && clip.getItemCount() > 0 ? clip.getItemAt(0).coerceToText(this) : null;
+        return t == null ? null : t.toString();
     }
 
     /** Resolves short links first, then loads the Freedium page. */
@@ -139,6 +187,11 @@ public class ReaderActivity extends Activity {
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) showError();
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                if (FreediumLinks.isOnMirror(mirror, url)) view.evaluateJavascript(CLEAN_JS, null);
             }
         });
     }

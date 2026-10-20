@@ -46,14 +46,21 @@ Medium app**. It is **scoped to `com.medium.reader` only**, reads on-screen text
 2. **Enable the Medium watcher** (Accessibility settings → Installed apps).
 
 When the Medium app shows a member-only story (detected by the on-screen "Member-only" text,
-the accessibility analogue of the userscript's DOM check), a draggable bubble appears. Tapping it
-triggers Medium's own **Share** action; the share target "Read on Freedium" then receives the URL
-and opens it via Freedium (the chooser entry is auto-selected when possible).
+the accessibility analogue of the userscript's DOM check), a draggable bubble appears. **One tap:**
+the service opens Medium's Share sheet, clicks **Copy link**, and launches the reader, which reads
+the copied URL and opens it via Freedium — no chooser to navigate. If "Copy link" isn't found it
+falls back to auto-selecting the "Read on Freedium" share entry, then to a manual prompt.
 
-**Why the Share hand-off:** the native Medium app is not a web page — there is no DOM and no article
-URL exposed to other apps. The only reliable way to get the exact URL is Medium's Share, so the flow
-is bubble → Medium Share → Freedium, not a silent scrape. The browser/WebView paths above remain the
-most seamless; this is for reading inside the native Medium app.
+**Why via Share/clipboard:** the native Medium app is not a web page — there is no DOM and no article
+URL exposed to other apps. The only reliable way to get the exact URL is Medium's own Share/Copy, so
+the flow is bubble → Copy link → clipboard → Freedium, not a silent scrape. The browser/WebView paths
+above remain the most seamless; this is for reading inside the native Medium app.
+
+## Fewer distractions in the reader
+
+The reader injects a small script that hides Freedium's donation drawer (shadcn/Vaul
+`drawer-overlay`/`drawer-content`) and keeps the page scrollable, re-applying as the page re-renders,
+so articles open straight to the content.
 
 ## Build
 
