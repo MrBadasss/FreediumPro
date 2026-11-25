@@ -94,6 +94,52 @@ final class Store {
         return removed;
     }
 
+    // --- reading positions (url -> scroll fraction 0..1) ---
+
+    private static final String POS = "positions";
+
+    static float position(Context c, String url) {
+        try {
+            return (float) new JSONObject(p(c).getString(POS, "{}")).optDouble(url, 0);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    static void setPosition(Context c, String url, float fraction) {
+        if (url == null) return;
+        try {
+            JSONObject o = new JSONObject(p(c).getString(POS, "{}"));
+            if (fraction < 0.02f) o.remove(url); else o.put(url, fraction);
+            p(c).edit().putString(POS, o.toString()).apply();
+        } catch (Exception ignored) {
+        }
+    }
+
+    // --- mirror list (ordered; first is preferred) ---
+
+    private static final String MIRRORS = "mirror_list";
+
+    static List<String> mirrors(Context c) {
+        List<String> out = new ArrayList<>();
+        try {
+            JSONArray a = new JSONArray(p(c).getString(MIRRORS, "[]"));
+            for (int i = 0; i < a.length(); i++) out.add(a.getString(i));
+        } catch (Exception ignored) {
+        }
+        if (out.isEmpty()) {
+            out.add(Prefs.mirror(c));
+            for (String m : FreediumLinks.KNOWN_MIRRORS) if (!out.contains(m)) out.add(m);
+        }
+        return out;
+    }
+
+    static void setMirrors(Context c, List<String> list) {
+        JSONArray a = new JSONArray();
+        for (String m : list) a.put(m);
+        p(c).edit().putString(MIRRORS, a.toString()).apply();
+    }
+
     private static void write(Context c, String key, List<Item> l) {
         JSONArray a = new JSONArray();
         for (Item i : l) {

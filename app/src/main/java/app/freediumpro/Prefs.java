@@ -13,8 +13,31 @@ final class Prefs {
     private static final String KEY_LOGO = "logo";
     private static final String KEY_FONT = "font_scale";
     private static final String KEY_READER_THEME = "reader_theme";
+    private static final String KEY_FONT_FAMILY = "font_family";
+    private static final String KEY_LINE_SPACING = "line_spacing";
+    private static final String KEY_READER_WIDTH = "reader_width";
+    private static final String KEY_KEEP_SCREEN_ON = "keep_screen_on";
+    private static final String KEY_IMMERSIVE = "immersive";
+    private static final String KEY_AUTO_OFFLINE = "auto_offline";
 
     private Prefs() {}
+
+    static int intPref(Context c, String k, int def) { return prefs(c).getInt(k, def); }
+    static void setInt(Context c, String k, int v) { prefs(c).edit().putInt(k, v).apply(); }
+
+    static int fontFamily(Context c) { return intPref(c, KEY_FONT_FAMILY, 0); }   // 0 default, 1 serif, 2 sans
+    static void setFontFamily(Context c, int v) { setInt(c, KEY_FONT_FAMILY, v); }
+    static int lineSpacing(Context c) { return intPref(c, KEY_LINE_SPACING, 1); }  // 0 compact, 1 normal, 2 relaxed
+    static void setLineSpacing(Context c, int v) { setInt(c, KEY_LINE_SPACING, v); }
+    static int readerWidth(Context c) { return intPref(c, KEY_READER_WIDTH, 1); }  // 0 narrow, 1 normal, 2 wide
+    static void setReaderWidth(Context c, int v) { setInt(c, KEY_READER_WIDTH, v); }
+
+    static boolean keepScreenOn(Context c) { return prefs(c).getBoolean(KEY_KEEP_SCREEN_ON, false); }
+    static void setKeepScreenOn(Context c, boolean v) { prefs(c).edit().putBoolean(KEY_KEEP_SCREEN_ON, v).apply(); }
+    static boolean immersive(Context c) { return prefs(c).getBoolean(KEY_IMMERSIVE, false); }
+    static void setImmersive(Context c, boolean v) { prefs(c).edit().putBoolean(KEY_IMMERSIVE, v).apply(); }
+    static boolean autoOffline(Context c) { return prefs(c).getBoolean(KEY_AUTO_OFFLINE, false); }
+    static void setAutoOffline(Context c, boolean v) { prefs(c).edit().putBoolean(KEY_AUTO_OFFLINE, v).apply(); }
 
     /** Reader text zoom percent (WebSettings.setTextZoom). */
     static int fontScale(Context context) {

@@ -86,6 +86,7 @@ public class ReaderActivity extends Activity {
     private boolean failed;
     private boolean historyRecorded;
     private View loadingOverlay;
+    private float lastFraction;
 
     private TextToSpeech tts;
     private boolean speaking;
@@ -101,6 +102,8 @@ public class ReaderActivity extends Activity {
         errorText = findViewById(R.id.error_text);
         ((Button) findViewById(R.id.error_retry)).setOnClickListener(v -> retry());
         ((Button) findViewById(R.id.error_browser)).setOnClickListener(v -> openExternally(currentOrPlannedUrl(), false));
+        ((Button) findViewById(R.id.error_offline)).setOnClickListener(v ->
+                startActivity(new Intent(this, LibraryActivity.class)));
         mirrors = buildMirrors();
         setUpWebView();
 
@@ -127,12 +130,9 @@ public class ReaderActivity extends Activity {
         load(originalUrl);
     }
 
-    /** User's mirror first, then the other known mirrors, for automatic failover. */
+    /** The user's ordered mirror list, for automatic failover. */
     private List<String> buildMirrors() {
-        List<String> out = new ArrayList<>();
-        out.add(Prefs.mirror(this));
-        for (String m : FreediumLinks.KNOWN_MIRRORS) if (!out.contains(m)) out.add(m);
-        return out;
+        return Store.mirrors(this);
     }
 
     private String mirror() {
@@ -234,6 +234,8 @@ public class ReaderActivity extends Activity {
                     view.evaluateJavascript(CLEAN_JS, null);
                     view.evaluateJavascript(DOWNLOAD_JS, null);
                     applyTheme();
+                    showReadingTime();
+                    restorePosition();
                     dismissLoading();
                     if (!historyRecorded && originalUrl != null) {
                         historyRecorded = true;
@@ -251,9 +253,20 @@ public class ReaderActivity extends Activity {
     private void updateReadingProgress() {
         float range = webView.getContentHeight() * getResources().getDisplayMetrics().density - webView.getHeight();
         float f = range > 0 ? Math.min(1f, Math.max(0f, webView.getScrollY() / range)) : 0f;
+        lastFraction = f;
         readingProgress.setPivotX(0f);
         readingProgress.setScaleX(f);
         readingProgress.setVisibility(f > 0.001f ? View.VISIBLE : View.GONE);
+    }
+
+    /** Scrolls to the last-read position for this article, once content has laid out. */
+    private void restorePosition() {
+        float frac = Store.position(this, originalUrl);
+        if (frac <= 0.02f) return;
+        webView.postDelayed(() -> {
+            float range = webView.getContentHeight() * getResources().getDisplayMetrics().density - webView.getHeight();
+            if (range > 0) webView.scrollTo(0, Math.round(range * frac));
+        }, 600);
     }
 
     private String titleOrUrl() {
@@ -271,7 +284,8 @@ public class ReaderActivity extends Activity {
         progress.setVisibility(View.GONE);
         webView.setVisibility(View.GONE);
         dismissLoading();
-        errorText.setText(getString(R.string.load_failed, mirror()));
+        errorText.setText(isOffline() ? getString(R.string.offline_message)
+                : getString(R.string.load_failed, mirror()));
         errorView.setVisibility(View.VISIBLE);
     }
 
@@ -279,6 +293,17 @@ public class ReaderActivity extends Activity {
         failed = false;
         errorView.setVisibility(View.GONE);
         webView.setVisibility(View.VISIBLE);
+    }
+
+    private boolean isOffline() {
+        try {
+            android.net.ConnectivityManager cm = getSystemService(android.net.ConnectivityManager.class);
+            android.net.Network n = cm.getActiveNetwork();
+            android.net.NetworkCapabilities caps = n == null ? null : cm.getNetworkCapabilities(n);
+            return caps == null || !caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private void dismissLoading() {
@@ -302,6 +327,18 @@ public class ReaderActivity extends Activity {
         } else {
             css = "";
         }
+        int fam = Prefs.fontFamily(this);
+        if (fam == 1) css += "article,.prose,.prose *{font-family:Georgia,'Times New Roman',serif!important;}";
+        else if (fam == 2) css += "article,.prose,.prose *{font-family:system-ui,-apple-system,sans-serif!important;}";
+
+        int ls = Prefs.lineSpacing(this);
+        String lh = ls == 0 ? "1.45" : ls == 2 ? "1.95" : "1.65";
+        css += ".prose{line-height:" + lh + "!important;}";
+
+        int w = Prefs.readerWidth(this);
+        if (w == 0) css += ".prose,.max-w-5xl{max-width:640px!important;}";
+        else if (w == 2) css += ".prose,.max-w-5xl{max-width:100%!important;}";
+
         String js = "(function(){var id='fz-theme';var e=document.getElementById(id);"
                 + "if(!e){e=document.createElement('style');e.id=id;"
                 + "(document.head||document.documentElement).appendChild(e);}"
@@ -309,28 +346,152 @@ public class ReaderActivity extends Activity {
         webView.evaluateJavascript(js, null);
     }
 
+    /** Applies window-level reading preferences (immersive, keep-screen-on). */
+    private void applyWindowPrefs() {
+        if (Prefs.keepScreenOn(this)) {
+            getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } else {
+            getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+        android.view.WindowInsetsController ic = getWindow().getInsetsController();
+        if (ic != null) {
+            if (Prefs.immersive(this)) {
+                ic.hide(android.view.WindowInsets.Type.systemBars());
+                ic.setSystemBarsBehavior(
+                        android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            } else {
+                ic.show(android.view.WindowInsets.Type.systemBars());
+            }
+        }
+    }
+
+    /** Estimates reading time from the article word count and shows it as the subtitle. */
+    private void showReadingTime() {
+        webView.evaluateJavascript(
+                "(function(){var a=document.querySelector('article')||document.body;"
+                        + "return a?(a.innerText.trim().split(/\\s+/).length):0;})()",
+                value -> {
+                    try {
+                        int words = Integer.parseInt(value.replace("\"", ""));
+                        if (words > 50 && getActionBar() != null) {
+                            int min = Math.max(1, Math.round(words / 220f));
+                            getActionBar().setSubtitle(getString(R.string.min_read, min));
+                        }
+                    } catch (Exception ignored) {
+                    }
+                });
+    }
+
     private static String jsString(String s) {
         return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 
-    private void changeFont(int deltaPercent) {
-        int scale = Math.max(70, Math.min(220, Prefs.fontScale(this) + deltaPercent));
-        Prefs.setFontScale(this, scale);
-        webView.getSettings().setTextZoom(scale);
-        Toast.makeText(this, getString(R.string.font_scale, scale), Toast.LENGTH_SHORT).show();
+    /** A panel with all reading-comfort controls, applied live. */
+    private void showAppearance() {
+        android.widget.LinearLayout col = new android.widget.LinearLayout(this);
+        col.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int p = dp(20);
+        col.setPadding(p, dp(8), p, p);
+
+        // Text size -/+
+        android.widget.TextView size = new android.widget.TextView(this);
+        size.setText(getString(R.string.font_scale, Prefs.fontScale(this)));
+        android.widget.LinearLayout sizeRow = new android.widget.LinearLayout(this);
+        sizeRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        android.widget.Button minus = flatButton("A-", v -> {
+            Prefs.setFontScale(this, Math.max(70, Prefs.fontScale(this) - 10));
+            webView.getSettings().setTextZoom(Prefs.fontScale(this));
+            size.setText(getString(R.string.font_scale, Prefs.fontScale(this)));
+        });
+        android.widget.Button plus = flatButton("A+", v -> {
+            Prefs.setFontScale(this, Math.min(220, Prefs.fontScale(this) + 10));
+            webView.getSettings().setTextZoom(Prefs.fontScale(this));
+            size.setText(getString(R.string.font_scale, Prefs.fontScale(this)));
+        });
+        sizeRow.addView(minus);
+        sizeRow.addView(plus);
+        sizeRow.addView(size);
+        col.addView(label(R.string.pref_text_size));
+        col.addView(sizeRow);
+
+        col.addView(segment(R.string.pref_font, new int[]{R.string.font_default, R.string.font_serif, R.string.font_sans},
+                Prefs.fontFamily(this), i -> { Prefs.setFontFamily(this, i); applyTheme(); }));
+        col.addView(segment(R.string.pref_spacing, new int[]{R.string.sp_compact, R.string.sp_normal, R.string.sp_relaxed},
+                Prefs.lineSpacing(this), i -> { Prefs.setLineSpacing(this, i); applyTheme(); }));
+        col.addView(segment(R.string.pref_width, new int[]{R.string.w_narrow, R.string.w_normal, R.string.w_wide},
+                Prefs.readerWidth(this), i -> { Prefs.setReaderWidth(this, i); applyTheme(); }));
+        col.addView(segment(R.string.reader_theme, new int[]{R.string.theme_default, R.string.theme_sepia, R.string.theme_dark},
+                Prefs.readerTheme(this), i -> { Prefs.setReaderTheme(this, i); applyTheme(); }));
+
+        col.addView(switchRow(R.string.keep_screen_on, Prefs.keepScreenOn(this),
+                on -> { Prefs.setKeepScreenOn(this, on); applyWindowPrefs(); }));
+        col.addView(switchRow(R.string.immersive, Prefs.immersive(this),
+                on -> { Prefs.setImmersive(this, on); applyWindowPrefs(); }));
+
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(col);
+        new android.app.AlertDialog.Builder(this).setTitle(R.string.appearance).setView(sv)
+                .setPositiveButton(android.R.string.ok, null).show();
     }
 
-    private void cycleTheme() {
-        int t = (Prefs.readerTheme(this) + 1) % 3;
-        Prefs.setReaderTheme(this, t);
-        applyTheme();
-        int[] names = {R.string.theme_default, R.string.theme_sepia, R.string.theme_dark};
-        Toast.makeText(this, names[t], Toast.LENGTH_SHORT).show();
+    private android.widget.TextView label(int res) {
+        android.widget.TextView t = new android.widget.TextView(this);
+        t.setText(res);
+        t.setPadding(0, dp(14), 0, dp(2));
+        t.setTextColor(0xFF9AA0A6);
+        return t;
+    }
+
+    private interface IntPick { void pick(int i); }
+
+    private android.view.View segment(int titleRes, int[] options, int current, IntPick onPick) {
+        android.widget.LinearLayout box = new android.widget.LinearLayout(this);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        box.addView(label(titleRes));
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        final android.widget.Button[] btns = new android.widget.Button[options.length];
+        for (int i = 0; i < options.length; i++) {
+            final int idx = i;
+            android.widget.Button b = new android.widget.Button(this, null, android.R.attr.borderlessButtonStyle);
+            b.setText(options[i]);
+            b.setAllCaps(false);
+            b.setAlpha(i == current ? 1f : 0.45f);
+            b.setOnClickListener(v -> {
+                for (android.widget.Button x : btns) x.setAlpha(0.45f);
+                b.setAlpha(1f);
+                onPick.pick(idx);
+            });
+            btns[i] = b;
+            row.addView(b, new android.widget.LinearLayout.LayoutParams(0, -2, 1f));
+        }
+        box.addView(row);
+        return box;
+    }
+
+    private android.view.View switchRow(int titleRes, boolean on, java.util.function.Consumer<Boolean> cb) {
+        android.widget.Switch s = new android.widget.Switch(this);
+        s.setText(titleRes);
+        s.setChecked(on);
+        s.setPadding(0, dp(12), 0, 0);
+        s.setOnCheckedChangeListener((b, c) -> cb.accept(c));
+        return s;
+    }
+
+    private android.widget.Button flatButton(String text, android.view.View.OnClickListener l) {
+        android.widget.Button b = new android.widget.Button(this, null, android.R.attr.borderlessButtonStyle);
+        b.setText(text);
+        b.setOnClickListener(l);
+        return b;
+    }
+
+    private int dp(int v) {
+        return Math.round(v * getResources().getDisplayMetrics().density);
     }
 
     private void toggleSave() {
         boolean saved = Store.toggleSaved(this, originalUrl, titleOrUrl(), null);
         Toast.makeText(this, saved ? R.string.saved_added : R.string.saved_removed, Toast.LENGTH_SHORT).show();
+        if (saved && Prefs.autoOffline(this)) saveOffline();
         invalidateOptionsMenu();
     }
 
@@ -533,10 +694,16 @@ public class ReaderActivity extends Activity {
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
         MenuItem save = menu.findItem(R.id.action_save);
-        if (save != null) save.setTitle(originalUrl != null && Store.isSaved(this, originalUrl)
-                ? R.string.saved_remove_action : R.string.save_action);
+        if (save != null) {
+            boolean isSaved = originalUrl != null && Store.isSaved(this, originalUrl);
+            save.setTitle(isSaved ? R.string.saved_remove_action : R.string.save_action);
+            save.setIcon(isSaved ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark);
+        }
         MenuItem read = menu.findItem(R.id.action_read_aloud);
-        if (read != null) read.setTitle(speaking ? R.string.stop_reading : R.string.read_aloud);
+        if (read != null) {
+            read.setTitle(speaking ? R.string.stop_reading : R.string.read_aloud);
+            read.setIcon(speaking ? R.drawable.ic_stop : R.drawable.ic_volume);
+        }
         return super.onPrepareOptionsMenu(menu);
     }
 
@@ -545,12 +712,8 @@ public class ReaderActivity extends Activity {
         int id = item.getItemId();
         if (id == R.id.action_refresh) {
             if (failed) retry(); else webView.reload();
-        } else if (id == R.id.action_font_bigger) {
-            changeFont(10);
-        } else if (id == R.id.action_font_smaller) {
-            changeFont(-10);
-        } else if (id == R.id.action_theme) {
-            cycleTheme();
+        } else if (id == R.id.action_appearance) {
+            showAppearance();
         } else if (id == R.id.action_save) {
             toggleSave();
         } else if (id == R.id.action_save_offline) {
@@ -591,10 +754,12 @@ public class ReaderActivity extends Activity {
     protected void onResume() {
         super.onResume();
         webView.onResume();
+        applyWindowPrefs();
     }
 
     @Override
     protected void onPause() {
+        if (originalUrl != null && offlinePath == null) Store.setPosition(this, originalUrl, lastFraction);
         webView.onPause();
         super.onPause();
     }
